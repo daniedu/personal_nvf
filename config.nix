@@ -132,6 +132,7 @@ in {
           enable = true;
           cmd = ["${pkgs.ols}/bin/ols"];
           filetypes = ["odin"];
+          root_markers = ["ols.json" ".git"];
         };
       };
     };
