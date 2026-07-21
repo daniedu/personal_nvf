@@ -159,7 +159,6 @@ in
 
     filetree.neo-tree = {
       enable = true;
-      event = "VimEnter";
       settings = {
         window.position = "right";
         enable_git_status = true;
