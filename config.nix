@@ -521,34 +521,34 @@ in
       tailwindcss-language-server
     ];
 
-    luaConfigPre = ''
-      local cmp = require("cmp")
-      local luasnip = require("luasnip")
-
-      local tab_mappings = cmp.mapping.preset.insert({
-        ["<Tab>"] = cmp.mapping(function(fallback)
-          if cmp.visible() then cmp.select_next_item()
-          elseif luasnip.expand_or_jumpable() then luasnip.expand_or_jump()
-          else fallback() end
-        end, { "i", "s" }),
-        ["<S-Tab>"] = cmp.mapping(function(fallback)
-          if cmp.visible() then cmp.select_prev_item()
-          elseif luasnip.jumpable(-1) then luasnip.jump(-1)
-          else fallback() end
-        end, { "i", "s" }),
-      })
-
-      local default_setup = cmp.setup
-      cmp.setup = function(opts)
-        opts.sorting = opts.sorting or {}
-        opts.sorting.comparators = opts.sorting.comparators or {}
-        table.insert(opts.sorting.comparators, 1, require("clangd_extensions.cmp_scores"))
-        opts.mapping = vim.tbl_deep_extend("force", tab_mappings, opts.mapping or {})
-        default_setup(opts)
-      end
-    '';
+    luaConfigPre = '''';
 
     luaConfigRC = {
+      cmp-config = ''
+        local cmp = require("cmp")
+        local luasnip = require("luasnip")
+
+        cmp.setup({
+          mapping = cmp.mapping.preset.insert({
+            ["<Tab>"] = cmp.mapping(function(fallback)
+              if cmp.visible() then cmp.select_next_item()
+              elseif luasnip.expand_or_jumpable() then luasnip.expand_or_jump()
+              else fallback() end
+            end, { "i", "s" }),
+            ["<S-Tab>"] = cmp.mapping(function(fallback)
+              if cmp.visible() then cmp.select_prev_item()
+              elseif luasnip.jumpable(-1) then luasnip.jump(-1)
+              else fallback() end
+            end, { "i", "s" }),
+          }),
+        })
+
+        local clangd_cmp = require("clangd_extensions.cmp_scores")
+        local comparators = cmp.get_config().sorting.comparators
+        table.insert(comparators, 1, clangd_cmp)
+        cmp.setup({ sorting = { comparators = comparators } })
+      '';
+
       solid-background = ''
         vim.api.nvim_set_hl(0, "Normal", { bg = "#1e1e2e" })
         vim.api.nvim_set_hl(0, "NormalFloat", { bg = "#181825" })
