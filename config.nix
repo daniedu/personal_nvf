@@ -116,6 +116,10 @@ in {
             "typescriptreact"
           ];
         };
+
+        nil = {
+          root_markers = lib.mkForce [".git" "flake.nix"];
+        };
       };
     };
 
