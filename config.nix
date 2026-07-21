@@ -124,6 +124,7 @@ in {
         typescript-language-server = {
           enable = true;
           filetypes = lib.mkForce ["typescript" "javascript" "typescriptreact" "javascriptreact"];
+          root_markers = lib.mkForce [".git" "tsconfig.json" "package.json"];
         };
       };
     };
