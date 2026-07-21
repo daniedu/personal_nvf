@@ -66,7 +66,7 @@ in
 
       servers = {
         clangd = {
-          cmd = [
+          cmd = lib.mkForce [
             "clangd"
             "--background-index"
             "--clang-tidy"
@@ -91,10 +91,6 @@ in
           ];
         };
 
-        intelephense = {
-          cmd = [ "intelephense" "--stdio" ];
-          filetypes = [ "php" ];
-        };
       };
     };
 
@@ -110,10 +106,7 @@ in
 
     dashboard.alpha = {
       enable = true;
-      opts = {
-        position = "center";
-        hl = "Type";
-      };
+      theme = null;
       layout = [
         {
           type = "padding";
@@ -159,7 +152,7 @@ in
 
     filetree.neo-tree = {
       enable = true;
-      settings = {
+      setupOpts = {
         window.position = "right";
         enable_git_status = true;
       };
@@ -178,12 +171,6 @@ in
           close = "<C-e>";
           confirm = "<CR>";
         };
-        sources = [
-          { name = "nvim_lsp"; }
-          { name = "luasnip"; }
-          { name = "path"; }
-          { name = "buffer"; }
-        ];
       };
     };
 
@@ -214,218 +201,255 @@ in
     keymaps = [
       {
         key = "<leader>e";
+          mode = "n";
         action = "<cmd>Neotree toggle<CR>";
-        options.desc = "Toggle file tree";
+        desc = "Toggle file tree";
       }
       {
         key = "<leader>xx";
+          mode = "n";
         action = "<cmd>Trouble diagnostics toggle<CR>";
-        options.desc = "Toggle trouble";
+        desc = "Toggle trouble";
       }
       {
         key = "<leader>wv";
+          mode = "n";
         action = "<cmd>vsplit<CR>";
-        options.desc = "Vertical split";
+        desc = "Vertical split";
       }
       {
         key = "<leader>ws";
+          mode = "n";
         action = "<cmd>split<CR>";
-        options.desc = "Horizontal split";
+        desc = "Horizontal split";
       }
       {
         key = "<leader>wc";
+          mode = "n";
         action = "<cmd>close<CR>";
-        options.desc = "Close window";
+        desc = "Close window";
       }
       {
         key = "<leader>wo";
+          mode = "n";
         action = "<cmd>only<CR>";
-        options.desc = "Close others";
+        desc = "Close others";
       }
       {
         key = "<leader>w=";
+          mode = "n";
         action = "<C-w>=";
-        options.desc = "Balance windows";
+        desc = "Balance windows";
       }
       {
         key = "<leader>ff";
+          mode = "n";
         lua = true;
         action = "function() require('fff').find_files() end";
-        options.desc = "Find files";
+        desc = "Find files";
       }
       {
         key = "<leader>fg";
+          mode = "n";
         lua = true;
         action = "function() require('fff').live_grep() end";
-        options.desc = "Live grep";
+        desc = "Live grep";
       }
       {
         key = "<leader>fz";
+          mode = "n";
         lua = true;
         action = "function() require('fff').live_grep({ grep = { modes = { 'fuzzy', 'plain' } } }) end";
-        options.desc = "Fuzzy grep";
+        desc = "Fuzzy grep";
       }
       {
         key = "<leader>fc";
+          mode = "n";
         lua = true;
         action = "function() require('fff').live_grep({ query = vim.fn.expand('<cword>') }) end";
-        options.desc = "Search word";
+        desc = "Search word";
       }
       {
         key = "<leader>gg";
+          mode = "n";
         action = "<cmd>LazyGit<CR>";
-        options.desc = "Toggle lazygit";
+        desc = "Toggle lazygit";
       }
       {
         key = "<leader>li";
+          mode = "n";
         action = "<cmd>checkhealth vim.lsp<CR>";
-        options.desc = "LSP Health";
+        desc = "LSP Health";
       }
       {
         key = "]d";
+          mode = "n";
         lua = true;
         action = "function() vim.diagnostic.goto_next() end";
-        options.desc = "Next diagnostic";
+        desc = "Next diagnostic";
       }
       {
         key = "[d";
+          mode = "n";
         lua = true;
         action = "function() vim.diagnostic.goto_prev() end";
-        options.desc = "Previous diagnostic";
+        desc = "Previous diagnostic";
       }
       {
         key = "<leader>td";
+          mode = "n";
         lua = true;
         action = "function() require('todo-comments').jump_next() end";
-        options.desc = "Next TODO";
+        desc = "Next TODO";
       }
       {
         mode = "i";
         key = "<C-z>";
         action = "<cmd>undo<CR>";
-        options.desc = "Undo";
+        desc = "Undo";
       }
       {
         mode = "i";
         key = "<C-y>";
         action = "<cmd>redo<CR>";
-        options.desc = "Redo";
+        desc = "Redo";
       }
       {
         key = "<leader>lq";
+          mode = "n";
         action = "<cmd>!qmllint %<CR>";
-        options.desc = "Run qmllint";
+        desc = "Run qmllint";
       }
       {
         mode = [ "i" "n" ];
         key = "<C-s>";
         action = "<cmd>w<CR>";
-        options.desc = "Save file";
+        desc = "Save file";
       }
       {
         key = "<leader>q";
+          mode = "n";
         action = "<cmd>qa<CR>";
-        options.desc = "Quit all";
+        desc = "Quit all";
       }
       {
         key = "<leader>Q";
+          mode = "n";
         action = "<cmd>qa!<CR>";
-        options.desc = "Force quit all";
+        desc = "Force quit all";
       }
       {
         key = "<leader>h";
+          mode = "n";
         action = "<cmd>nohlsearch<CR>";
-        options.desc = "Clear search highlights";
+        desc = "Clear search highlights";
       }
       {
         lua = true;
         key = "]b";
+          mode = "n";
         action = "function() vim.cmd.bnext() end";
-        options.desc = "Next buffer";
+        desc = "Next buffer";
       }
       {
         lua = true;
         key = "[b";
+          mode = "n";
         action = "function() vim.cmd.bprevious() end";
-        options.desc = "Previous buffer";
+        desc = "Previous buffer";
       }
       {
         lua = true;
         key = "<leader>bd";
+          mode = "n";
         action = "function() vim.cmd('bprevious | bdelete #') end";
-        options.desc = "Close buffer";
+        desc = "Close buffer";
       }
       {
         lua = true;
         key = "<leader>y";
+          mode = "n";
         action = "function() vim.fn.setreg('+', vim.fn.getreg('\"')) end";
-        options.desc = "Yank to system clipboard";
+        desc = "Yank to system clipboard";
       }
       {
         lua = true;
         key = "<leader>p";
+          mode = "n";
         action = "function() vim.cmd('normal! \"+p') end";
-        options.desc = "Paste from system clipboard";
+        desc = "Paste from system clipboard";
       }
       {
         key = "<leader>t";
+          mode = "n";
         action = "<cmd>tabnew<CR>";
-        options.desc = "New tab";
+        desc = "New tab";
       }
       {
         key = "<leader><Tab>";
+          mode = "n";
         action = "<cmd>tabnext<CR>";
-        options.desc = "Next tab";
+        desc = "Next tab";
       }
       {
         key = "<leader><S-Tab>";
+          mode = "n";
         action = "<cmd>tabprevious<CR>";
-        options.desc = "Previous tab";
+        desc = "Previous tab";
       }
       {
         key = "<leader>1";
+          mode = "n";
         action = "<cmd>tabnext 1<CR>";
-        options.desc = "Tab 1";
+        desc = "Tab 1";
       }
       {
         key = "<leader>2";
+          mode = "n";
         action = "<cmd>tabnext 2<CR>";
-        options.desc = "Tab 2";
+        desc = "Tab 2";
       }
       {
         key = "<leader>3";
+          mode = "n";
         action = "<cmd>tabnext 3<CR>";
-        options.desc = "Tab 3";
+        desc = "Tab 3";
       }
       {
         key = "<leader>4";
+          mode = "n";
         action = "<cmd>tabnext 4<CR>";
-        options.desc = "Tab 4";
+        desc = "Tab 4";
       }
       {
         key = "<leader>5";
+          mode = "n";
         action = "<cmd>tabnext 5<CR>";
-        options.desc = "Tab 5";
+        desc = "Tab 5";
       }
       {
         key = "<leader>6";
+          mode = "n";
         action = "<cmd>tabnext 6<CR>";
-        options.desc = "Tab 6";
+        desc = "Tab 6";
       }
       {
         key = "<leader>7";
+          mode = "n";
         action = "<cmd>tabnext 7<CR>";
-        options.desc = "Tab 7";
+        desc = "Tab 7";
       }
       {
         key = "<leader>8";
+          mode = "n";
         action = "<cmd>tabnext 8<CR>";
-        options.desc = "Tab 8";
+        desc = "Tab 8";
       }
       {
         key = "<leader>9";
+          mode = "n";
         action = "<cmd>tabnext 9<CR>";
-        options.desc = "Tab 9";
+        desc = "Tab 9";
       }
     ];
 
@@ -438,7 +462,7 @@ in
       };
 
       clangd-extensions = {
-        package = pkgs.vimPlugins.clangd-extensions-nvim;
+        package = pkgs.vimPlugins.clangd_extensions-nvim;
         setup = ''
           require("clangd_extensions").setup({
             enable_offset_encoding_workaround = true,
@@ -494,8 +518,7 @@ in
       cppcheck
       bear
       gdb
-      nodePackages.tailwindcss-language-server
-      intelephense
+      tailwindcss-language-server
     ];
 
     luaConfigPre = ''
