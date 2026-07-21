@@ -130,7 +130,7 @@ in {
 
         ols = {
           enable = true;
-          cmd = ["${pkgs.ols}/bin/ols"];
+          cmd = ["ols"];
           filetypes = ["odin"];
           root_markers = ["ols.json" ".git"];
         };
@@ -639,18 +639,6 @@ in {
         })
       '';
 
-      ols = ''
-        vim.api.nvim_create_autocmd("FileType", {
-          pattern = "odin",
-          callback = function()
-            vim.lsp.start({
-              name = "ols",
-              cmd = { "ols" },
-              root_dir = vim.fs.root(0, { "ols.json", ".git" }),
-            })
-          end,
-        })
-      '';
     };
   };
 }
