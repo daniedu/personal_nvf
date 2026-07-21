@@ -120,6 +120,11 @@ in {
         nil = {
           root_markers = lib.mkForce [".git" "flake.nix"];
         };
+
+        typescript-language-server = {
+          enable = true;
+          filetypes = lib.mkForce ["typescript" "javascript" "typescriptreact" "javascriptreact"];
+        };
       };
     };
 
