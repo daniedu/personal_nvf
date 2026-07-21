@@ -552,6 +552,12 @@ in
         local comparators = cmp.get_config().sorting.comparators
         table.insert(comparators, 1, clangd_cmp)
         cmp.setup({ sorting = { comparators = comparators } })
+
+        local old_notify = vim.notify
+        vim.notify = function(msg, ...)
+          if type(msg) == "string" and msg:match("lsp%.color is deprecated") then return end
+          old_notify(msg, ...)
+        end
       '';
 
       solid-background = ''
