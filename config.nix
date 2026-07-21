@@ -127,6 +127,12 @@ in {
           filetypes = lib.mkForce ["typescript" "javascript" "typescriptreact" "javascriptreact"];
           root_markers = lib.mkForce [".git" "tsconfig.json" "package.json"];
         };
+
+        ols = {
+          enable = true;
+          cmd = ["${pkgs.ols}/bin/ols"];
+          filetypes = ["odin"];
+        };
       };
     };
 
