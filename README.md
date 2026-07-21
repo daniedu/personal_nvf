@@ -1,13 +1,16 @@
 # personal_nvf
 
 Standalone Neovim configuration built with [nvf](https://github.com/NotAShelf/nvf).
+Replaces the old [nixvim](https://github.com/nix-community/nixvim) config from `personal_nixos`.
 
 ## Usage
 
 ```bash
+# from anywhere:
 nix run github:daniedu/personal_nvf
-# or locally:
-nix run /path/to/personal_nvf
+
+# locally:
+nix run /home/work/Projects/nixosconfig/personal_nvf
 
 # dev shell:
 nix develop
