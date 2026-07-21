@@ -126,7 +126,7 @@ in {
 
     statusline.lualine = {
       enable = true;
-      theme = "catppuccin";
+      theme = "auto";
     };
 
     dashboard.alpha = {
@@ -586,10 +586,8 @@ in {
       '';
 
       lsp-color = ''
-        local ok, _ = pcall(vim.lsp.document_color.enable)
-        if not ok then
-          vim.lsp.handlers["textDocument/documentColor"] = function() end
-        end
+        rawset(vim.lsp.handlers, "textDocument/documentColor", nil)
+        pcall(vim.lsp.document_color.enable)
       '';
 
       indent = ''
