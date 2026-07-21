@@ -236,6 +236,12 @@ in {
         desc = "Toggle file tree";
       }
       {
+        key = "<C-a>";
+        mode = "n";
+        action = "<cmd>Neotree toggle<CR>";
+        desc = "Toggle file tree";
+      }
+      {
         key = "<leader>xx";
         mode = "n";
         action = "<cmd>Trouble diagnostics toggle<CR>";
@@ -551,13 +557,7 @@ in {
       tailwindcss-language-server
     ];
 
-    luaConfigPre = ''
-      local old_notify = vim.notify
-      vim.notify = function(msg, ...)
-        if type(msg) == "string" and msg:match("lsp%.color is deprecated") then return end
-        old_notify(msg, ...)
-      end
-    '';
+    luaConfigPre = '''';
 
     luaConfigRC = {
       cmp-config = ''
@@ -583,6 +583,13 @@ in {
         local comparators = cmp.get_config().sorting.comparators
         table.insert(comparators, 1, clangd_cmp)
         cmp.setup({ sorting = { comparators = comparators } })
+      '';
+
+      lsp-color = ''
+        local ok, _ = pcall(vim.lsp.document_color.enable)
+        if not ok then
+          vim.lsp.handlers["textDocument/documentColor"] = function() end
+        end
       '';
 
       indent = ''
