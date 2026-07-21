@@ -155,6 +155,11 @@ in
       setupOpts = {
         window.position = "right";
         enable_git_status = true;
+        filtered_items = {
+          visible = true;
+          hide_dotfiles = false;
+          hide_gitignore = true;
+        };
       };
     };
 
