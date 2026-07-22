@@ -18,7 +18,10 @@
   outputs = { nixpkgs, nvf, fff-nvim, ... }:
     let
       system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
+      pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
       neovimConfigured = (nvf.lib.neovimConfiguration {
         inherit pkgs;
         modules = [

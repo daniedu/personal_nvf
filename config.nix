@@ -118,6 +118,11 @@ in {
           ];
         };
 
+        intelephense = {
+          cmd = ["intelephense" "--stdio"];
+          filetypes = ["php"];
+        };
+
         nil = {
           root_markers = lib.mkForce [".git" "flake.nix"];
         };
@@ -211,10 +216,8 @@ in {
       nvim-cmp = {
         enable = true;
         sources = {
-          nvim-lsp = null;
           buffer = "[Buffer]";
           path = "[Path]";
-          luasnip = lib.mkForce "[LuaSnip]";
         };
         sourcePlugins = [
           "cmp-nvim-lsp"
@@ -585,6 +588,7 @@ in {
       bear
       gdb
       tailwindcss-language-server
+      intelephense
     ];
 
     luaConfigPre = '''';
