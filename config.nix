@@ -208,9 +208,20 @@ in {
     };
 
     autocomplete = {
-      enableSharedCmpSources = true;
       nvim-cmp = {
         enable = true;
+        sources = {
+          nvim-lsp = null;
+          buffer = "[Buffer]";
+          path = "[Path]";
+          luasnip = lib.mkForce "[LuaSnip]";
+        };
+        sourcePlugins = [
+          "cmp-nvim-lsp"
+          "cmp-buffer"
+          "cmp-path"
+          "cmp-luasnip"
+        ];
         mappings = {
           next = "<C-j>";
           previous = "<C-k>";
@@ -581,23 +592,6 @@ in {
     luaConfigRC = {
       cmp-config = ''
         local cmp = require("cmp")
-        local luasnip = require("luasnip")
-
-        cmp.setup({
-          mapping = cmp.mapping.preset.insert({
-            ["<Tab>"] = cmp.mapping(function(fallback)
-              if cmp.visible() then cmp.select_next_item()
-              elseif luasnip.expand_or_jumpable() then luasnip.expand_or_jump()
-              else fallback() end
-            end, { "i", "s" }),
-            ["<S-Tab>"] = cmp.mapping(function(fallback)
-              if cmp.visible() then cmp.select_prev_item()
-              elseif luasnip.jumpable(-1) then luasnip.jump(-1)
-              else fallback() end
-            end, { "i", "s" }),
-          }),
-        })
-
         local clangd_cmp = require("clangd_extensions.cmp_scores")
         local comparators = cmp.get_config().sorting.comparators
         table.insert(comparators, 1, clangd_cmp)
