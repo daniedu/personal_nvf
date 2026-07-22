@@ -79,6 +79,7 @@ in {
     };
 
     lsp = {
+      enable = true;
       trouble.enable = true;
 
       servers = {
