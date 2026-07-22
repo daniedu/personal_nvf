@@ -107,7 +107,7 @@ in {
         };
 
         tailwindcss = {
-          cmd = ["tailwindcss-language-server" "--stdio"];
+          cmd = lib.mkForce ["tailwindcss-language-server" "--stdio"];
           filetypes = [
             "html"
             "css"
@@ -124,7 +124,7 @@ in {
 
         typescript-language-server = {
           enable = true;
-          cmd = ["typescript-language-server" "--stdio"];
+          cmd = lib.mkForce ["typescript-language-server" "--stdio"];
           filetypes = lib.mkForce ["typescript" "javascript" "typescriptreact" "javascriptreact"];
           root_markers = lib.mkForce [".git" "tsconfig.json" "package.json"];
         };
