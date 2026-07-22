@@ -131,9 +131,9 @@ in {
 
         ols = {
           enable = true;
-          cmd = ["ols"];
+          cmd = lib.mkForce ["ols"];
           filetypes = ["odin"];
-          root_markers = ["ols.json" ".git"];
+          root_markers = lib.mkForce ["ols.json" ".git"];
         };
       };
     };
