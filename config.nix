@@ -1,7 +1,6 @@
 {
   pkgs,
   lib,
-  fff-nvim,
   ...
 }: let
   inherit (lib.generators) mkLuaInline;
@@ -319,28 +318,28 @@ in {
         key = "<leader>ff";
         mode = "n";
         lua = true;
-        action = "function() require('fff').find_files() end";
+        action = "function() require('telescope.builtin').find_files() end";
         desc = "Find files";
       }
       {
         key = "<leader>fg";
         mode = "n";
         lua = true;
-        action = "function() require('fff').live_grep() end";
+        action = "function() require('telescope.builtin').live_grep() end";
         desc = "Live grep";
       }
       {
         key = "<leader>fz";
         mode = "n";
         lua = true;
-        action = "function() require('fff').live_grep({ grep = { modes = { 'fuzzy', 'plain' } } }) end";
-        desc = "Fuzzy grep";
+        action = "function() require('telescope.builtin').grep_string() end";
+        desc = "Grep string";
       }
       {
         key = "<leader>fc";
         mode = "n";
         lua = true;
-        action = "function() require('fff').live_grep({ query = vim.fn.expand('<cword>') }) end";
+        action = "function() require('telescope.builtin').grep_string({ search = vim.fn.expand('<cword>') }) end";
         desc = "Search word";
       }
       {
@@ -563,21 +562,6 @@ in {
         '';
       };
 
-      fff = {
-        package = fff-nvim.packages.${pkgs.stdenv.hostPlatform.system}.fff-nvim;
-        setup = ''
-          require("fff").setup({
-            layout = {
-              height = 0.8,
-              width = 0.8,
-              prompt_position = "bottom",
-            },
-            preview = { enabled = true },
-            grep = { modes = { "plain", "regex", "fuzzy" } },
-            frecency = { enabled = true },
-          })
-        '';
-      };
     };
 
     extraPackages = with pkgs; [
