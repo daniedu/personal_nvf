@@ -150,6 +150,11 @@
     };
 
     snippets.luasnip.enable = true;
+    terminal.toggleterm = {
+      enable = true;
+      lazygit.enable = true;
+    };
+
     autopairs.nvim-autopairs.enable = true;
     comments.comment-nvim.enable = true;
 
@@ -247,6 +252,12 @@
         mode = "n";
         action = "<cmd>nohlsearch<CR>";
         desc = "Clear search highlights";
+      }
+      {
+        key = "<leader>gg";
+        mode = "n";
+        action = "<cmd>LazyGit<CR>";
+        desc = "Toggle lazygit";
       }
       {
         key = "<leader>li";
