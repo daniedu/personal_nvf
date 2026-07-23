@@ -153,6 +153,8 @@
     autopairs.nvim-autopairs.enable = true;
     comments.comment-nvim.enable = true;
 
+    binds.whichKey.enable = true;
+
     keymaps = [
       {
         key = "<leader>e";
@@ -191,6 +193,42 @@
         mode = "n";
         action = "<cmd>close<CR>";
         desc = "Close window";
+      }
+      {
+        key = "<leader>wh";
+        mode = "n";
+        action = "<C-w>h";
+        desc = "Window left";
+      }
+      {
+        key = "<leader>wj";
+        mode = "n";
+        action = "<C-w>j";
+        desc = "Window down";
+      }
+      {
+        key = "<leader>wk";
+        mode = "n";
+        action = "<C-w>k";
+        desc = "Window up";
+      }
+      {
+        key = "<leader>wl";
+        mode = "n";
+        action = "<C-w>l";
+        desc = "Window right";
+      }
+      {
+        key = "<leader>ww";
+        mode = "n";
+        action = "<C-w>w";
+        desc = "Cycle windows";
+      }
+      {
+        key = "<leader>w=";
+        mode = "n";
+        action = "<C-w>=";
+        desc = "Balance windows";
       }
       {
         key = "<leader>q";
