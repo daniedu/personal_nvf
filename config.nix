@@ -15,5 +15,16 @@
     };
 
     lsp.enable = true;
+
+    autocomplete.nvim-cmp = {
+      enable = true;
+      sourcePlugins = [
+        "cmp-nvim-lsp"
+        "cmp-buffer"
+        "cmp-path"
+      ];
+    };
+
+    snippets.luasnip.enable = true;
   };
 }
