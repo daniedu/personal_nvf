@@ -63,6 +63,7 @@
 
     lsp = {
       enable = true;
+      trouble.enable = true;
       servers = {
         clangd = {
           cmd = lib.mkForce [
@@ -150,6 +151,11 @@
     };
 
     snippets.luasnip.enable = true;
+    git = {
+      enable = true;
+      gitsigns.enable = true;
+    };
+
     terminal.toggleterm = {
       enable = true;
       lazygit.enable = true;
@@ -158,9 +164,20 @@
     autopairs.nvim-autopairs.enable = true;
     comments.comment-nvim.enable = true;
 
+    utility = {
+      surround.enable = true;
+      motion.flash-nvim.enable = true;
+    };
+
     binds.whichKey.enable = true;
 
     keymaps = [
+      {
+        key = "<leader>xx";
+        mode = "n";
+        action = "<cmd>Trouble diagnostics toggle<CR>";
+        desc = "Toggle trouble diagnostics";
+      }
       {
         key = "<leader>e";
         mode = "n";
