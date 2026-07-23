@@ -247,6 +247,20 @@
     ];
 
     luaConfigRC = {
+      lsp-color = ''
+        rawset(vim.lsp.handlers, "textDocument/documentColor", nil)
+        pcall(vim.lsp.document_color.enable)
+      '';
+
+      neotree-autopen = ''
+        vim.api.nvim_create_autocmd("VimEnter", {
+          callback = function()
+            require("neo-tree.command").execute({ toggle = false, dir = vim.uv.cwd() })
+          end,
+          nested = true,
+        })
+      '';
+
       cmp-ctrlp = ''
         vim.keymap.set("i", "<C-p>", function()
           require("cmp").complete()
