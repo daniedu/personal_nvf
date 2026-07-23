@@ -146,7 +146,7 @@
         close = "<C-e>";
         confirm = "<CR>";
       };
-      setupOpts.completion.completeopt = "menu,menuone,noinsert,noselect";
+      setupOpts.completion.completeopt = "menu,menuone,noinsert";
     };
 
     snippets.luasnip.enable = true;
