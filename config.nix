@@ -244,8 +244,8 @@
       {
         mode = ["i" "n"];
         key = "<C-s>";
-        action = "<cmd>w<CR>";
-        desc = "Save file";
+        action = "<cmd>lua require('conform').format({ async = false, lsp_fallback = true })<CR><cmd>w<CR>";
+        desc = "Format and save";
       }
       {
         key = "<leader>h";
