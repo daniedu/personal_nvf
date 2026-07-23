@@ -23,6 +23,11 @@
         "cmp-buffer"
         "cmp-path"
       ];
+      sources = {
+        nvim_lsp = "[LSP]";
+        buffer = "[Buffer]";
+        path = "[Path]";
+      };
     };
 
     snippets.luasnip.enable = true;
