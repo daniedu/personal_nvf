@@ -14,7 +14,18 @@
       odin.enable = true;
     };
 
-    lsp.enable = true;
+    lsp = {
+      enable = true;
+      servers = {
+        ols = {
+          cmd = lib.mkForce [
+            "${pkgs.ols}/bin/ols"
+            "--odin-root"
+            "${pkgs.odin}/share"
+          ];
+        };
+      };
+    };
 
     autocomplete.nvim-cmp = {
       enable = true;
