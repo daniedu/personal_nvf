@@ -335,6 +335,9 @@
           require("tiny-inline-diagnostic").setup({ preset = "modern" })
         '';
       };
+      vim-visual-multi = {
+        package = pkgs.vimPlugins.vim-visual-multi;
+      };
     };
 
     extraPackages = with pkgs; [
