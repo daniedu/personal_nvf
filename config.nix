@@ -254,6 +254,18 @@
         desc = "Clear search highlights";
       }
       {
+        key = "<leader>gt";
+        mode = "n";
+        action = "<cmd>tabnew<CR>";
+        desc = "New tab";
+      }
+      {
+        key = "<C-t>";
+        mode = "n";
+        action = "<cmd>tabnew<CR>";
+        desc = "New tab";
+      }
+      {
         key = "<leader>gg";
         mode = "n";
         action = "<cmd>LazyGit<CR>";
