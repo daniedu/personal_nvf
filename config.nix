@@ -345,12 +345,12 @@
       qt6.qtdeclarative cppcheck bear gdb tailwindcss-language-server intelephense
     ];
 
-    luaConfigRC = {
-      lsp-color = ''
-        rawset(vim.lsp.handlers, "textDocument/documentColor", nil)
-        pcall(vim.lsp.document_color.enable)
-      '';
+    luaConfigPre = ''
+      rawset(vim.lsp.handlers, "textDocument/documentColor", nil)
+      pcall(vim.lsp.document_color.enable)
+    '';
 
+    luaConfigRC = {
       neotree-autopen = ''
         vim.api.nvim_create_autocmd("VimEnter", {
           callback = function()
