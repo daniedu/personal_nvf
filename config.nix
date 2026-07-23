@@ -169,6 +169,24 @@
       motion.flash-nvim.enable = true;
     };
 
+    treesitter.textobjects = {
+      enable = true;
+      setupOpts = {
+        select = {
+          enable = true;
+          lookahead = true;
+          keymaps = {
+            af = "@function.outer";
+            if = "@function.inner";
+            ac = "@class.outer";
+            ic = "@class.inner";
+            aa = "@parameter.outer";
+            ia = "@parameter.inner";
+          };
+        };
+      };
+    };
+
     binds.whichKey.enable = true;
 
     keymaps = [
