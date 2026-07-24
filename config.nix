@@ -348,6 +348,17 @@
     luaConfigPre = ''
       rawset(vim.lsp.handlers, "textDocument/documentColor", nil)
       pcall(vim.lsp.document_color.enable)
+
+      vim.schedule(function()
+        local ok, ui = pcall(require, "flutter-tools.ui")
+        if ok then
+          local orig = ui.notify
+          ui.notify = function(msg, level, opts)
+            if type(msg) == "string" and msg:find("lsp.color", 1, true) then return end
+            return orig(msg, level, opts)
+          end
+        end
+      end)
     '';
 
     luaConfigRC = {
