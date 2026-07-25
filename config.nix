@@ -57,22 +57,23 @@ in
         base0F = withHash activeTheme.base0F;
       };
     };
-    luaConfigRC.forceOpaque = entryAfter [ "theme" ] ''
-      local function apply_opaque()
-        vim.api.nvim_set_hl(0, "Normal", { bg = "${bgHex}" })
-        vim.api.nvim_set_hl(0, "NormalNC", { bg = "${bgHex}" })
-        vim.api.nvim_set_hl(0, "SignColumn", { bg = "${bgHex}" })
-        vim.api.nvim_set_hl(0, "EndOfBuffer", { bg = "${bgHex}" })
-      end
 
-      -- Apply immediately
-      apply_opaque()
+    luaConfigRC.kittyToggle = entryAfter [ "theme" ] ''
+      -- Automatically set Kitty background opaque on enter, and transparent on leave
+      vim.api.nvim_create_autocmd("VimEnter", {
+        callback = function()
+          vim.fn.system("kitten @ set-background-opacity 1.0 &")
+        end,
+      })
 
-      -- Re-apply every time the color scheme changes or reloads
-      vim.api.nvim_create_autocmd("ColorScheme", {
-        callback = apply_opaque,
+      vim.api.nvim_create_autocmd("VimLeavePre", {
+        callback = function()
+          -- Change 0.85 to whatever your usual transparent opacity level is
+          vim.fn.system("kitten @ set-background-opacity 0.85 &")
+        end,
       })
     '';
+
     languages = {
       enableFormat = true;
       enableTreesitter = true;
