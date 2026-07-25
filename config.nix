@@ -7,6 +7,8 @@ let
   activeTheme = import ./assets/themes/astronaut_earth_space_art_2.nix;
   withHash = hex: "#${hex}";
   bgHex = withHash activeTheme.base00;
+  # Pull the dag helper from nvf's library structure
+  inherit (lib.nvim.dag) entryAfter;
 in
 {
   config.vim = {
@@ -38,7 +40,7 @@ in
       name = "base16";
       base16-colors = {
         base00 = bgHex;
- 	base01 = withHash activeTheme.base01;
+        base01 = withHash activeTheme.base01;
         base02 = withHash activeTheme.base02;
         base03 = withHash activeTheme.base03;
         base04 = withHash activeTheme.base04;
@@ -55,9 +57,8 @@ in
         base0F = withHash activeTheme.base0F;
       };
     };
-
-    # Explicitly enforce solid background highlights to counter Kitty's transparency
-    luaConfigRC.forceOpaque = ''
+    # Force this to evaluate AFTER the theme module loads
+    luaConfigRC.forceOpaque = entryAfter [ "theme" ] ''
       vim.api.nvim_set_hl(0, "Normal", { bg = "${bgHex}" })
       vim.api.nvim_set_hl(0, "NormalNC", { bg = "${bgHex}" })
       vim.api.nvim_set_hl(0, "SignColumn", { bg = "${bgHex}" })
