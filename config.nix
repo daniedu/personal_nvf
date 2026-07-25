@@ -169,6 +169,11 @@
       motion.flash-nvim.enable = true;
     };
 
+    fzf-lua = {
+      enable = true;
+      profile = "max-perf";
+    };
+
     treesitter.textobjects = {
       enable = true;
       setupOpts = {
@@ -206,15 +211,29 @@
         key = "<leader>ff";
         mode = "n";
         lua = true;
-        action = "function() require('telescope.builtin').find_files() end";
+        action = "function() require('fzf-lua').files() end";
         desc = "Find files";
       }
       {
         key = "<leader>fg";
         mode = "n";
         lua = true;
-        action = "function() require('telescope.builtin').live_grep() end";
+        action = "function() require('fzf-lua').live_grep() end";
         desc = "Live grep";
+      }
+      {
+        key = "<leader>fb";
+        mode = "n";
+        lua = true;
+        action = "function() require('fzf-lua').buffers() end";
+        desc = "Find buffers";
+      }
+      {
+        key = "<leader>fh";
+        mode = "n";
+        lua = true;
+        action = "function() require('fzf-lua').help_tags() end";
+        desc = "Help tags";
       }
       {
         key = "<leader>wv";
@@ -343,6 +362,7 @@
     extraPackages = with pkgs; [
       prettierd phpPackages.php-cs-fixer stylua nixfmt gofumpt rustfmt dart
       qt6.qtdeclarative cppcheck bear gdb tailwindcss-language-server intelephense
+      lazygit
     ];
 
     luaConfigPre = ''
