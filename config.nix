@@ -3,6 +3,11 @@
   lib,
   ...
 }:
+let
+  activeTheme = import ./assets/themes/astronaut_earth_space_art_2.nix;
+  withHash = hex: "#${hex}";
+  bgHex = withHash activeTheme.base00;
+in
 {
   config.vim = {
     viAlias = false;
@@ -27,34 +32,36 @@
       severity_sort = true;
     };
 
-    theme =
-      let
-        activeTheme = import ./assets/themes/astronaut_earth_space_art_2.nix;
-        withHash = hex: "#${hex}";
-      in
-      {
-        enable = false;
-        transparent = true;
-        name = "base16";
-        base16-colors = {
-          base00 = withHash activeTheme.base00;
-          base01 = withHash activeTheme.base01;
-          base02 = withHash activeTheme.base02;
-          base03 = withHash activeTheme.base03;
-          base04 = withHash activeTheme.base04;
-          base05 = withHash activeTheme.base05;
-          base06 = withHash activeTheme.base06;
-          base07 = withHash activeTheme.base07;
-          base08 = withHash activeTheme.base08;
-          base09 = withHash activeTheme.base09;
-          base0A = withHash activeTheme.base0A;
-          base0B = withHash activeTheme.base0B;
-          base0C = withHash activeTheme.base0C;
-          base0D = withHash activeTheme.base0D;
-          base0E = withHash activeTheme.base0E;
-          base0F = withHash activeTheme.base0F;
-        };
+    theme = {
+      enable = true;
+      transparent = false;
+      name = "base16";
+      base16-colors = {
+        base00 = bgHex;
+        base02 = withHash activeTheme.base02;
+        base03 = withHash activeTheme.base03;
+        base04 = withHash activeTheme.base04;
+        base05 = withHash activeTheme.base05;
+        base06 = withHash activeTheme.base06;
+        base07 = withHash activeTheme.base07;
+        base08 = withHash activeTheme.base08;
+        base09 = withHash activeTheme.base09;
+        base0A = withHash activeTheme.base0A;
+        base0B = withHash activeTheme.base0B;
+        base0C = withHash activeTheme.base0C;
+        base0D = withHash activeTheme.base0D;
+        base0E = withHash activeTheme.base0E;
+        base0F = withHash activeTheme.base0F;
       };
+    };
+
+    # Explicitly enforce solid background highlights to counter Kitty's transparency
+    luaConfigRC.forceOpaque = ''
+      vim.api.nvim_set_hl(0, "Normal", { bg = "${bgHex}" })
+      vim.api.nvim_set_hl(0, "NormalNC", { bg = "${bgHex}" })
+      vim.api.nvim_set_hl(0, "SignColumn", { bg = "${bgHex}" })
+      vim.api.nvim_set_hl(0, "EndOfBuffer", { bg = "${bgHex}" })
+    '';
 
     languages = {
       enableFormat = true;
