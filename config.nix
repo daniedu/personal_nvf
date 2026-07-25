@@ -320,12 +320,6 @@
         desc = "New tab";
       }
       {
-        key = "<leader>gg";
-        mode = "n";
-        action = "<cmd>LazyGit<CR>";
-        desc = "Toggle lazygit";
-      }
-      {
         key = "<leader>li";
         mode = "n";
         action = "<cmd>checkhealth vim.lsp<CR>";
@@ -345,6 +339,23 @@
         action = "function() vim.diagnostic.goto_prev() end";
         desc = "Previous diagnostic";
       }
+      {
+        key = "<leader>gg";
+        mode = "n";
+        lua = true;
+        action = ''
+          (function()
+            local Terminal = require("toggleterm.terminal")
+            local lazygit = Terminal.Terminal:new({
+              cmd = "lazygit",
+              direction = "float",
+              hidden = true,
+            })
+            lazygit:toggle()
+          end)()
+        '';
+        desc = "Toggle lazygit";
+      }
     ];
 
     extraPlugins = {
@@ -362,7 +373,6 @@
     extraPackages = with pkgs; [
       prettierd phpPackages.php-cs-fixer stylua nixfmt gofumpt rustfmt dart
       qt6.qtdeclarative cppcheck bear gdb tailwindcss-language-server intelephense
-      lazygit
     ];
 
     luaConfigPre = ''
