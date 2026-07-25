@@ -34,7 +34,7 @@
       in
       {
         enable = false;
-        transparent = false;
+        transparent = true;
         name = "base16";
         base16-colors = {
           base00 = withHash activeTheme.base00;
