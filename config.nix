@@ -33,7 +33,7 @@
         withHash = hex: "#${hex}";
       in
       {
-        enable = true;
+        enable = false;
         transparent = false;
         name = "base16";
         base16-colors = {
