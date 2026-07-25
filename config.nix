@@ -37,26 +37,17 @@
         transparent = false;
         name = "base16";
         extraConfig = ''
-          -- Ensure true color support is active
           vim.opt.termguicolors = true
-
-          -- Define the background color variable
-          local bg = "${withHash activeTheme.base00}"
-
-          -- Apply solid backgrounds to Normal and related UI elements
-          local highlights = {
-            "Normal",
-            "NormalNC",
-            "SignColumn",
-            "EndOfBuffer",
-            "MsgArea",
-            "TelescopeNormal",
-            "NormalFloat",
-          }
-
-          for _, group in ipairs(highlights) do
-            vim.api.nvim_set_hl(0, group, { bg = bg })
-          end
+          -- Force override via autocommand so nvf's built-in loader doesn't reset it
+          vim.api.nvim_create_autocmd("ColorScheme", {
+            pattern = "*",
+            callback = function()
+              vim.api.nvim_set_hl(0, "Normal", { bg = "${withHash activeTheme.base00}", nonumber = false })
+              vim.api.nvim_set_hl(0, "NormalNC", { bg = "${withHash activeTheme.base00}" })
+              vim.api.nvim_set_hl(0, "SignColumn", { bg = "${withHash activeTheme.base00}" })
+              vim.api.nvim_set_hl(0, "EndOfBuffer", { bg = "${withHash activeTheme.base00}" })
+            end,
+          })
         '';
         base16-colors = {
           base00 = withHash activeTheme.base00;
