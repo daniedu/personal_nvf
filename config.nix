@@ -38,16 +38,14 @@
         name = "base16";
         extraConfig = ''
           vim.opt.termguicolors = true
-          -- Force override via autocommand so nvf's built-in loader doesn't reset it
-          vim.api.nvim_create_autocmd("ColorScheme", {
-            pattern = "*",
-            callback = function()
-              vim.api.nvim_set_hl(0, "Normal", { bg = "${withHash activeTheme.base00}", nonumber = false })
-              vim.api.nvim_set_hl(0, "NormalNC", { bg = "${withHash activeTheme.base00}" })
-              vim.api.nvim_set_hl(0, "SignColumn", { bg = "${withHash activeTheme.base00}" })
-              vim.api.nvim_set_hl(0, "EndOfBuffer", { bg = "${withHash activeTheme.base00}" })
-            end,
-          })
+          local bg = "${withHash activeTheme.base00}"
+          for _, group in ipairs({
+            "Normal", "NormalNC", "SignColumn", "EndOfBuffer", 
+            "MsgArea", "TelescopeNormal", "NormalFloat", "CursorLineNC",
+            "VertSplit", "WinSeparator", "LineNr"
+          }) do
+            vim.api.nvim_set_hl(0, group, { bg = bg })
+          end
         '';
         base16-colors = {
           base00 = withHash activeTheme.base00;
