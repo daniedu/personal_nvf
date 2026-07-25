@@ -31,6 +31,7 @@
       withHash = hex: "#${hex}";
     in {
       enable = true;
+      transparent = false;
       name = "base16";
       base16-colors = {
         base00 = withHash activeTheme.base00;
