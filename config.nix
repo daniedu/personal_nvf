@@ -2,7 +2,8 @@
   pkgs,
   lib,
   ...
-}: {
+}:
+{
   config.vim = {
     viAlias = false;
     vimAlias = true;
@@ -26,35 +27,56 @@
       severity_sort = true;
     };
 
-    theme = let
-      activeTheme = import ./assets/themes/astronaut_earth_space_art_2.nix;
-      withHash = hex: "#${hex}";
-    in {
-      enable = true;
-      transparent = false;
-      name = "base16";
-      extraConfig = ''
-        vim.api.nvim_set_hl(0, "Normal", { bg = "${withHash activeTheme.base00}" })
-      '';
-      base16-colors = {
-        base00 = withHash activeTheme.base00;
-        base01 = withHash activeTheme.base01;
-        base02 = withHash activeTheme.base02;
-        base03 = withHash activeTheme.base03;
-        base04 = withHash activeTheme.base04;
-        base05 = withHash activeTheme.base05;
-        base06 = withHash activeTheme.base06;
-        base07 = withHash activeTheme.base07;
-        base08 = withHash activeTheme.base08;
-        base09 = withHash activeTheme.base09;
-        base0A = withHash activeTheme.base0A;
-        base0B = withHash activeTheme.base0B;
-        base0C = withHash activeTheme.base0C;
-        base0D = withHash activeTheme.base0D;
-        base0E = withHash activeTheme.base0E;
-        base0F = withHash activeTheme.base0F;
+    theme =
+      let
+        activeTheme = import ./assets/themes/astronaut_earth_space_art_2.nix;
+        withHash = hex: "#${hex}";
+      in
+      {
+        enable = true;
+        transparent = false;
+        name = "base16";
+        extraConfig = ''
+          -- Ensure true color support is active
+          vim.opt.termguicolors = true
+
+          -- Define the background color variable
+          local bg = "${bgColor}"
+
+          -- Apply solid backgrounds to Normal and related UI elements
+          local highlights = {
+            "Normal",
+            "NormalNC",
+            "SignColumn",
+            "EndOfBuffer",
+            "MsgArea",
+            "TelescopeNormal",
+            "NormalFloat",
+          }
+
+          for _, group in ipairs(highlights) do
+            vim.api.nvim_set_hl(0, group, { bg = bg })
+          end
+        '';
+        base16-colors = {
+          base00 = withHash activeTheme.base00;
+          base01 = withHash activeTheme.base01;
+          base02 = withHash activeTheme.base02;
+          base03 = withHash activeTheme.base03;
+          base04 = withHash activeTheme.base04;
+          base05 = withHash activeTheme.base05;
+          base06 = withHash activeTheme.base06;
+          base07 = withHash activeTheme.base07;
+          base08 = withHash activeTheme.base08;
+          base09 = withHash activeTheme.base09;
+          base0A = withHash activeTheme.base0A;
+          base0B = withHash activeTheme.base0B;
+          base0C = withHash activeTheme.base0C;
+          base0D = withHash activeTheme.base0D;
+          base0E = withHash activeTheme.base0E;
+          base0F = withHash activeTheme.base0F;
+        };
       };
-    };
 
     languages = {
       enableFormat = true;
@@ -72,7 +94,7 @@
       markdown.enable = true;
       nix = {
         enable = true;
-        format.type = ["nixfmt"];
+        format.type = [ "nixfmt" ];
       };
       odin.enable = true;
       php.enable = true;
@@ -100,31 +122,60 @@
           ];
         };
         tailwindcss = {
-          cmd = lib.mkForce ["tailwindcss-language-server" "--stdio"];
+          cmd = lib.mkForce [
+            "tailwindcss-language-server"
+            "--stdio"
+          ];
           filetypes = [
-            "html" "css" "javascript" "typescript"
-            "javascriptreact" "typescriptreact"
+            "html"
+            "css"
+            "javascript"
+            "typescript"
+            "javascriptreact"
+            "typescriptreact"
           ];
         };
         intelephense = {
-          cmd = ["intelephense" "--stdio"];
-          filetypes = ["php"];
+          cmd = [
+            "intelephense"
+            "--stdio"
+          ];
+          filetypes = [ "php" ];
         };
-        nil.root_markers = lib.mkForce [".git" "flake.nix"];
+        nil.root_markers = lib.mkForce [
+          ".git"
+          "flake.nix"
+        ];
         typescript-language-server = {
           enable = true;
-          cmd = lib.mkForce ["typescript-language-server" "--stdio"];
-          filetypes = lib.mkForce ["typescript" "javascript" "typescriptreact" "javascriptreact"];
-          root_markers = lib.mkForce [".git" "tsconfig.json" "package.json"];
+          cmd = lib.mkForce [
+            "typescript-language-server"
+            "--stdio"
+          ];
+          filetypes = lib.mkForce [
+            "typescript"
+            "javascript"
+            "typescriptreact"
+            "javascriptreact"
+          ];
+          root_markers = lib.mkForce [
+            ".git"
+            "tsconfig.json"
+            "package.json"
+          ];
         };
         ols = {
           enable = true;
           cmd = lib.mkForce [
             "${pkgs.ols}/bin/ols"
-            "--odin-root" "${pkgs.odin}/share"
+            "--odin-root"
+            "${pkgs.odin}/share"
           ];
-          filetypes = ["odin"];
-          root_markers = lib.mkForce ["ols.json" ".git"];
+          filetypes = [ "odin" ];
+          root_markers = lib.mkForce [
+            "ols.json"
+            ".git"
+          ];
         };
       };
     };
@@ -159,7 +210,10 @@
         path = "[Path]";
       };
       sourcePlugins = [
-        "cmp-nvim-lsp" "cmp-buffer" "cmp-path" "cmp-luasnip"
+        "cmp-nvim-lsp"
+        "cmp-buffer"
+        "cmp-path"
+        "cmp-luasnip"
       ];
       mappings = {
         next = "<C-j>";
@@ -318,7 +372,10 @@
         desc = "Quit all";
       }
       {
-        mode = ["i" "n"];
+        mode = [
+          "i"
+          "n"
+        ];
         key = "<C-s>";
         action = "<cmd>lua require('conform').format({ async = false, lsp_fallback = true })<CR><cmd>w<CR>";
         desc = "Format and save";
@@ -393,8 +450,19 @@
     };
 
     extraPackages = with pkgs; [
-      prettierd phpPackages.php-cs-fixer stylua nixfmt gofumpt rustfmt dart
-      qt6.qtdeclarative cppcheck bear gdb tailwindcss-language-server intelephense
+      prettierd
+      phpPackages.php-cs-fixer
+      stylua
+      nixfmt
+      gofumpt
+      rustfmt
+      dart
+      qt6.qtdeclarative
+      cppcheck
+      bear
+      gdb
+      tailwindcss-language-server
+      intelephense
     ];
 
     luaConfigPre = ''
