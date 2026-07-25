@@ -33,6 +33,9 @@
       enable = true;
       transparent = false;
       name = "base16";
+      extraConfig = ''
+        vim.api.nvim_set_hl(0, "Normal", { bg = "${withHash activeTheme.base00}" })
+      '';
       base16-colors = {
         base00 = withHash activeTheme.base00;
         base01 = withHash activeTheme.base01;
