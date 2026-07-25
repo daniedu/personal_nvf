@@ -36,17 +36,6 @@
         enable = true;
         transparent = false;
         name = "base16";
-        extraConfig = ''
-          vim.opt.termguicolors = true
-          local bg = "${withHash activeTheme.base00}"
-          for _, group in ipairs({
-            "Normal", "NormalNC", "SignColumn", "EndOfBuffer", 
-            "MsgArea", "TelescopeNormal", "NormalFloat", "CursorLineNC",
-            "VertSplit", "WinSeparator", "LineNr"
-          }) do
-            vim.api.nvim_set_hl(0, group, { bg = bg })
-          end
-        '';
         base16-colors = {
           base00 = withHash activeTheme.base00;
           base01 = withHash activeTheme.base01;
