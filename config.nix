@@ -41,7 +41,7 @@
           vim.opt.termguicolors = true
 
           -- Define the background color variable
-          local bg = "${bgColor}"
+          local bg = "${withHash activeTheme.base00}"
 
           -- Apply solid backgrounds to Normal and related UI elements
           local highlights = {
