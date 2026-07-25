@@ -158,7 +158,6 @@
 
     terminal.toggleterm = {
       enable = true;
-      lazygit.enable = true;
     };
 
     autopairs.nvim-autopairs.enable = true;
@@ -344,7 +343,7 @@
         mode = "n";
         lua = true;
         action = ''
-          (function()
+          function()
             local Terminal = require("toggleterm.terminal")
             local lazygit = Terminal.Terminal:new({
               cmd = "lazygit",
@@ -352,7 +351,7 @@
               hidden = true,
             })
             lazygit:toggle()
-          end)()
+          end
         '';
         desc = "Toggle lazygit";
       }
