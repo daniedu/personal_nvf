@@ -38,6 +38,7 @@ in
       name = "base16";
       base16-colors = {
         base00 = bgHex;
+ 	base01 = withHash activeTheme.base01;
         base02 = withHash activeTheme.base02;
         base03 = withHash activeTheme.base03;
         base04 = withHash activeTheme.base04;
