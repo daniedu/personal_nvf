@@ -57,14 +57,22 @@ in
         base0F = withHash activeTheme.base0F;
       };
     };
-    # Force this to evaluate AFTER the theme module loads
     luaConfigRC.forceOpaque = entryAfter [ "theme" ] ''
-      vim.api.nvim_set_hl(0, "Normal", { bg = "${bgHex}" })
-      vim.api.nvim_set_hl(0, "NormalNC", { bg = "${bgHex}" })
-      vim.api.nvim_set_hl(0, "SignColumn", { bg = "${bgHex}" })
-      vim.api.nvim_set_hl(0, "EndOfBuffer", { bg = "${bgHex}" })
-    '';
+      local function apply_opaque()
+        vim.api.nvim_set_hl(0, "Normal", { bg = "${bgHex}" })
+        vim.api.nvim_set_hl(0, "NormalNC", { bg = "${bgHex}" })
+        vim.api.nvim_set_hl(0, "SignColumn", { bg = "${bgHex}" })
+        vim.api.nvim_set_hl(0, "EndOfBuffer", { bg = "${bgHex}" })
+      end
 
+      -- Apply immediately
+      apply_opaque()
+
+      -- Re-apply every time the color scheme changes or reloads
+      vim.api.nvim_create_autocmd("ColorScheme", {
+        callback = apply_opaque,
+      })
+    '';
     languages = {
       enableFormat = true;
       enableTreesitter = true;
