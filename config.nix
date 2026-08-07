@@ -6,7 +6,7 @@
 let
   activeTheme = import ./assets/themes/astronaut_earth_space_art_2.nix;
   # How much to pale the accent colors (0.0 = untouched, 1.0 = fully white)
-  paleStrength = 0.5;
+  paleStrength = 0.75;
   withHash = hex: "#${hex}";
   # Pull the dag helper from nvf's library structure
   inherit (lib.nvim.dag) entryAfter;
