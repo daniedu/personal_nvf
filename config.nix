@@ -5,17 +5,15 @@
 }:
 let
   activeTheme = import ./assets/themes/astronaut_earth_space_art_2.nix;
-  # How much to desaturate the palette (0.0 = untouched, 1.0 = fully gray)
-  desatStrength = 0.5;
+  # How much to pale the accent colors (0.0 = untouched, 1.0 = fully white)
+  paleStrength = 0.5;
   withHash = hex: "#${hex}";
   # Pull the dag helper from nvf's library structure
   inherit (lib.nvim.dag) entryAfter;
 
-  # Desaturate a #hex color by desatStrength while keeping its lightness.
-  desaturatedHex = hex:
+  # Make a #hex color whiter by blending each channel toward white.
+  paleHex = hex:
     let
-      absL = x: if x < 0.0 then -x else x;
-      # hex string -> { r g b } in 0..1
       hexToInt = hex:
         let
           digitValue = d:
@@ -27,53 +25,13 @@ let
             else if ord >= 97 && ord <= 102 then ord - 87
             else throw "invalid hex digit '${d}'";
         in builtins.foldl' (acc: d: acc * 16 + digitValue d) 0 (lib.stringToCharacters hex);
-      toChannel = v: hexToInt v / 255.0;
-      rgb = {
-        r = toChannel (lib.substring 0 2 hex);
-        g = toChannel (lib.substring 2 2 hex);
-        b = toChannel (lib.substring 4 2 hex);
-      };
-
-      # RGB -> HSL
-      max = lib.max rgb.r (lib.max rgb.g rgb.b);
-      min = lib.min rgb.r (lib.min rgb.g rgb.b);
-      d = max - min;
-      l = (max + min) / 2.0;
-      s = if d == 0.0 then 0.0 else d / (1.0 - absL (2.0 * l - 1.0));
-      h = if d == 0.0 then 0.0
-        else 60.0 * (
-            if max == rgb.r then (rgb.g - rgb.b) / d + (if rgb.g < rgb.b then 6.0 else 0.0)
-            else if max == rgb.g then (rgb.b - rgb.r) / d + 2.0
-            else (rgb.r - rgb.g) / d + 4.0
-          );
-
-      # reduce saturation, keep hue + lightness
-      ss = s * (1.0 - desatStrength);
-      c = (1.0 - absL (2.0 * l - 1.0)) * ss;
-      h' = h / 60.0;
-      k = if h' < 1.0 then 0.0
-        else if h' < 2.0 then 1.0
-        else if h' < 3.0 then 2.0
-        else if h' < 4.0 then 3.0
-        else if h' < 5.0 then 4.0
-        else 5.0;
-      t = h' - k;
-      isEven = k == 0.0 || k == 2.0 || k == 4.0;
-      x = if isEven then c * t else c * (1.0 - t);
-      prim =
-        if k == 0.0 then { r = c; g = x; b = 0.0; }
-        else if k == 1.0 then { r = x; g = c; b = 0.0; }
-        else if k == 2.0 then { r = 0.0; g = c; b = x; }
-        else if k == 3.0 then { r = 0.0; g = x; b = c; }
-        else if k == 4.0 then { r = x; g = 0.0; b = c; }
-        else { r = c; g = 0.0; b = x; };
-      m = l - c / 2.0;
-      chan = v: builtins.floor ((v + m) * 255.0 + 0.5);
-      pad = v: let
-        v_ = lib.toHexString v;
-      in if lib.strings.stringLength v_ == 1 then "0${v_}" else v_;
+      chanToHex = v:
+        let
+          new = builtins.floor (hexToInt v * (1.0 - paleStrength) + 255.0 * paleStrength + 0.5);
+          v_ = lib.toHexString new;
+        in if lib.strings.stringLength v_ == 1 then "0${v_}" else v_;
     in withHash
-      (pad (chan prim.r) + pad (chan prim.g) + pad (chan prim.b));
+      (chanToHex (lib.substring 0 2 hex) + chanToHex (lib.substring 2 2 hex) + chanToHex (lib.substring 4 2 hex));
 in
 {
   config.vim = {
@@ -104,40 +62,40 @@ in
       transparent = false;
       name = "base16";
       base16-colors = {
-        base00 = desaturatedHex activeTheme.base00;
-        base01 = desaturatedHex activeTheme.base01;
-        base02 = desaturatedHex activeTheme.base02;
-        base03 = desaturatedHex activeTheme.base03;
-        base04 = desaturatedHex activeTheme.base04;
-        base05 = desaturatedHex activeTheme.base05;
-        base06 = desaturatedHex activeTheme.base06;
-        base07 = desaturatedHex activeTheme.base07;
-        base08 = desaturatedHex activeTheme.base08;
-        base09 = desaturatedHex activeTheme.base09;
-        base0A = desaturatedHex activeTheme.base0A;
-        base0B = desaturatedHex activeTheme.base0B;
-        base0C = desaturatedHex activeTheme.base0C;
-        base0D = desaturatedHex activeTheme.base0D;
-        base0E = desaturatedHex activeTheme.base0E;
-        base0F = desaturatedHex activeTheme.base0F;
+        base00 = withHash activeTheme.base00;
+        base01 = withHash activeTheme.base01;
+        base02 = withHash activeTheme.base02;
+        base03 = withHash activeTheme.base03;
+        base04 = withHash activeTheme.base04;
+        base05 = withHash activeTheme.base05;
+        base06 = withHash activeTheme.base06;
+        base07 = withHash activeTheme.base07;
+        base08 = paleHex activeTheme.base08;
+        base09 = paleHex activeTheme.base09;
+        base0A = paleHex activeTheme.base0A;
+        base0B = paleHex activeTheme.base0B;
+        base0C = paleHex activeTheme.base0C;
+        base0D = paleHex activeTheme.base0D;
+        base0E = paleHex activeTheme.base0E;
+        base0F = paleHex activeTheme.base0F;
       };
     };
 
-    luaConfigRC.kittyToggle = entryAfter [ "theme" ] ''
-      -- Automatically set Kitty background opaque on enter, and transparent on leave
-      vim.api.nvim_create_autocmd("VimEnter", {
-        callback = function()
-          vim.fn.system("kitten @ set-background-opacity 1.0 &")
-        end,
-      })
-
-      vim.api.nvim_create_autocmd("VimLeavePre", {
-        callback = function()
-          -- Change 0.85 to whatever your usual transparent opacity level is
-          vim.fn.system("kitten @ set-background-opacity 0.85 &")
-        end,
-      })
-    '';
+    # luaConfigRC.kittyToggle = entryAfter [ "theme" ] ''
+    #   -- Automatically set Kitty background opaque on enter, and transparent on leave
+    #   vim.api.nvim_create_autocmd("VimEnter", {
+    #     callback = function()
+    #       vim.fn.system("kitten @ set-background-opacity 1.0 &")
+    #     end,
+    #   })
+    #
+    #   vim.api.nvim_create_autocmd("VimLeavePre", {
+    #     callback = function()
+    #       -- Change 0.85 to whatever your usual transparent opacity level is
+    #       vim.fn.system("kitten @ set-background-opacity 0.85 &")
+    #     end,
+    #   })
+    # '';
 
     languages = {
       enableFormat = true;
