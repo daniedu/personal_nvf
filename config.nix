@@ -456,6 +456,12 @@ in
         '';
         desc = "Toggle lazygit";
       }
+      {
+        key = "<C-/>";
+        mode = "x";
+        action = "<Plug>(comment_toggle_linewise_visual)";
+        desc = "Toggle comment on selection";
+      }
     ];
 
     extraPlugins = {
