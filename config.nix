@@ -6,13 +6,15 @@
 let
   activeTheme = import ./assets/themes/astronaut_earth_space_art_2.nix;
   # How much to pale the accent colors (0.0 = untouched, 1.0 = fully white)
-  paleStrength = 0.75;
+  paleStrength = 0.7;
+  # How much to pale the UI/gray colors (line numbers, cursorline, neo-tree, text)
+  uiPaleStrength = 0.3;
   withHash = hex: "#${hex}";
   # Pull the dag helper from nvf's library structure
   inherit (lib.nvim.dag) entryAfter;
 
   # Make a #hex color whiter by blending each channel toward white.
-  paleHex = hex:
+  paleHex = strength: hex:
     let
       hexToInt = hex:
         let
@@ -27,7 +29,7 @@ let
         in builtins.foldl' (acc: d: acc * 16 + digitValue d) 0 (lib.stringToCharacters hex);
       chanToHex = v:
         let
-          new = builtins.floor (hexToInt v * (1.0 - paleStrength) + 255.0 * paleStrength + 0.5);
+          new = builtins.floor (hexToInt v * (1.0 - strength) + 255.0 * strength + 0.5);
           v_ = lib.toHexString new;
         in if lib.strings.stringLength v_ == 1 then "0${v_}" else v_;
     in withHash
@@ -63,21 +65,21 @@ in
       name = "base16";
       base16-colors = {
         base00 = withHash activeTheme.base00;
-        base01 = withHash activeTheme.base01;
-        base02 = withHash activeTheme.base02;
-        base03 = withHash activeTheme.base03;
-        base04 = withHash activeTheme.base04;
-        base05 = withHash activeTheme.base05;
-        base06 = withHash activeTheme.base06;
-        base07 = withHash activeTheme.base07;
-        base08 = paleHex activeTheme.base08;
-        base09 = paleHex activeTheme.base09;
-        base0A = paleHex activeTheme.base0A;
-        base0B = paleHex activeTheme.base0B;
-        base0C = paleHex activeTheme.base0C;
-        base0D = paleHex activeTheme.base0D;
-        base0E = paleHex activeTheme.base0E;
-        base0F = paleHex activeTheme.base0F;
+        base01 = paleHex uiPaleStrength activeTheme.base01;
+        base02 = paleHex uiPaleStrength activeTheme.base02;
+        base03 = paleHex uiPaleStrength activeTheme.base03;
+        base04 = paleHex uiPaleStrength activeTheme.base04;
+        base05 = paleHex uiPaleStrength activeTheme.base05;
+        base06 = paleHex uiPaleStrength activeTheme.base06;
+        base07 = paleHex uiPaleStrength activeTheme.base07;
+        base08 = paleHex paleStrength activeTheme.base08;
+        base09 = paleHex paleStrength activeTheme.base09;
+        base0A = paleHex paleStrength activeTheme.base0A;
+        base0B = paleHex paleStrength activeTheme.base0B;
+        base0C = paleHex paleStrength activeTheme.base0C;
+        base0D = paleHex paleStrength activeTheme.base0D;
+        base0E = paleHex paleStrength activeTheme.base0E;
+        base0F = paleHex paleStrength activeTheme.base0F;
       };
     };
 
