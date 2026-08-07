@@ -2,8 +2,8 @@
   scheme = "astronaut earth space art 2";
   base00 = "0D1419";
   base01 = "202326";
-  base02 = "544A3A";
-  base03 = "FFFFFF";
+  base02 = "544D43";
+  base03 = "635959";
   base04 = "FFFFFF";
   base05 = "FDCF89";
   base06 = "9F744C";
@@ -11,8 +11,8 @@
   base08 = "D3713D";
   base09 = "B36664";
   base0A = "CDB6D6";
-  base0B = "DFDAD3";
-  base0C = "FFFFFF";
+  base0B = "B5AA95";
+  base0C = "EFE3E3";
   base0D = "BFA691";
   base0E = "AD8455";
   base0F = "BCA972";
