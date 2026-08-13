@@ -264,6 +264,11 @@ in
     utility = {
       surround.enable = true;
       motion.flash-nvim.enable = true;
+
+      images.image-nvim = {
+        enable = true;
+        setupOpts.backend = "kitty";
+      };
     };
 
     fzf-lua = {
