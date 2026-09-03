@@ -353,60 +353,6 @@ in
         desc = "Help tags";
       }
       {
-        key = "<leader>wv";
-        mode = "n";
-        action = "<cmd>vsplit<CR>";
-        desc = "Vertical split";
-      }
-      {
-        key = "<leader>ws";
-        mode = "n";
-        action = "<cmd>split<CR>";
-        desc = "Horizontal split";
-      }
-      {
-        key = "<leader>wc";
-        mode = "n";
-        action = "<cmd>close<CR>";
-        desc = "Close window";
-      }
-      {
-        key = "<leader>wh";
-        mode = "n";
-        action = "<C-w>h";
-        desc = "Window left";
-      }
-      {
-        key = "<leader>wj";
-        mode = "n";
-        action = "<C-w>j";
-        desc = "Window down";
-      }
-      {
-        key = "<leader>wk";
-        mode = "n";
-        action = "<C-w>k";
-        desc = "Window up";
-      }
-      {
-        key = "<leader>wl";
-        mode = "n";
-        action = "<C-w>l";
-        desc = "Window right";
-      }
-      {
-        key = "<leader>ww";
-        mode = "n";
-        action = "<C-w>w";
-        desc = "Cycle windows";
-      }
-      {
-        key = "<leader>w=";
-        mode = "n";
-        action = "<C-w>=";
-        desc = "Balance windows";
-      }
-      {
         key = "<leader>q";
         mode = "n";
         action = "<cmd>qa<CR>";
@@ -645,6 +591,75 @@ in
         vim.keymap.set("i", "<C-p>", function()
           require("cmp").complete()
         end, { desc = "Trigger nvim-cmp completion" })
+      '';
+
+      cmp-tmux-fix = entryAfter ["pluginConfigs"] ''
+        -- Extra cmp mappings that bypass tmux C-h/j/k/l interception
+        -- Provides <C-n>/<C-p>/<Tab>/<S-Tab>/<Down>/<Up> as alternatives to <C-j>/<C-k>
+        -- and re-asserts <C-j>/<C-k> after is_vim fix; mappings are lazy so they work before cmp loads
+        vim.schedule(function()
+          local function has_words_before()
+            local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+            return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match("%s") == nil
+          end
+
+          local function cmp_next(fallback)
+            local ok, cmp = pcall(require, "cmp")
+            if ok and cmp.visible() then
+              return cmp.select_next_item()
+            end
+            local luasnip_ok, luasnip = pcall(require, "luasnip")
+            if luasnip_ok and luasnip.locally_jumpable(1) then
+              return luasnip.jump(1)
+            end
+            if has_words_before() then
+              if ok then return cmp.complete() end
+            end
+            if fallback then return fallback() end
+            vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Tab>", true, true, true), "n", true)
+          end
+
+          local function cmp_prev(fallback)
+            local ok, cmp = pcall(require, "cmp")
+            if ok and cmp.visible() then
+              return cmp.select_prev_item()
+            end
+            local luasnip_ok, luasnip = pcall(require, "luasnip")
+            if luasnip_ok and luasnip.locally_jumpable(-1) then
+              return luasnip.jump(-1)
+            end
+            if fallback then return fallback() end
+            vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<S-Tab>", true, true, true), "n", true)
+          end
+
+          -- Re-assert C-j/C-k (ensures they work even if tmux mis-detects)
+          vim.keymap.set("i", "<C-j>", cmp_next, { desc = "cmp next (C-j)" })
+          vim.keymap.set("i", "<C-k>", cmp_prev, { desc = "cmp prev (C-k)" })
+          -- Alternatives that tmux never intercepts
+          vim.keymap.set("i", "<C-n>", cmp_next, { desc = "cmp next (C-n alt)" })
+          -- C-p: keep original trigger when not navigating
+          vim.keymap.set("i", "<C-p>", function(fallback)
+            local ok, cmp = pcall(require, "cmp")
+            local luasnip_ok, luasnip = pcall(require, "luasnip")
+            if (ok and cmp.visible()) or (luasnip_ok and luasnip.locally_jumpable(-1)) then
+              return cmp_prev(fallback)
+            end
+            if ok then return cmp.complete() end
+            if fallback then return fallback() end
+          end, { desc = "cmp prev / trigger" })
+          vim.keymap.set("i", "<Tab>", cmp_next, { desc = "cmp next (Tab)" })
+          vim.keymap.set("i", "<S-Tab>", cmp_prev, { desc = "cmp prev (S-Tab)" })
+          vim.keymap.set("i", "<Down>", function(fallback)
+            local ok, cmp = pcall(require, "cmp")
+            if ok and cmp.visible() then return cmp.select_next_item() end
+            if fallback then return fallback() end
+          end, { desc = "cmp next (Down)" })
+          vim.keymap.set("i", "<Up>", function(fallback)
+            local ok, cmp = pcall(require, "cmp")
+            if ok and cmp.visible() then return cmp.select_prev_item() end
+            if fallback then return fallback() end
+          end, { desc = "cmp prev (Up)" })
+        end)
       '';
     };
   };
