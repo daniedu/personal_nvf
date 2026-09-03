@@ -44,6 +44,15 @@ in
       mapleader = " ";
     };
 
+    clipboard = {
+      enable = true;
+      registers = "unnamedplus";
+      providers = {
+        wl-copy.enable = true;
+        xclip.enable = true;
+      };
+    };
+
     opts = {
       number = true;
       shiftwidth = 2;
@@ -310,6 +319,12 @@ in
         desc = "Toggle file tree";
       }
       {
+        key = "<C-b>";
+        mode = "n";
+        action = "<cmd>Neotree toggle<CR>";
+        desc = "Toggle file tree (Ctrl-b)";
+      }
+      {
         key = "<leader>ff";
         mode = "n";
         lua = true;
@@ -508,6 +523,115 @@ in
     '';
 
     luaConfigRC = {
+      clipboard-hybrid = entryAfter ["basic"] ''
+        -- Hybrid clipboard: auto-detects Linux (Wayland/X11) / WSL / tmux / SSH
+        -- Priority: 1) win32yank.exe on WSL, 2) native wl-copy/xclip when available outside tmux/SSH, 3) OSC52 fallback (tmux-aware)
+        pcall(function() vim.opt.clipboard = "unnamedplus" end)
+
+        local function is_wsl()
+          if vim.fn.has("wsl") == 1 then return true end
+          if os.getenv("WSL_DISTRO_NAME") ~= nil then return true end
+          if os.getenv("WSL_INTEROP") ~= nil then return true end
+          if vim.fn.filereadable("/proc/sys/fs/binfmt_misc/WSLInterop") == 1 then return true end
+          local f = io.open("/proc/version", "r")
+          if f then
+            local c = f:read("*a"); f:close()
+            if c and (c:lower():find("microsoft") or c:lower():find("wsl")) then return true end
+          end
+          return false
+        end
+
+        local in_tmux = os.getenv("TMUX") ~= nil
+        local in_ssh = os.getenv("SSH_TTY") ~= nil or os.getenv("SSH_CONNECTION") ~= nil
+        local has_win32yank = vim.fn.executable("win32yank.exe") == 1
+        local has_wl_copy = vim.fn.executable("wl-copy") == 1
+        local has_wl_paste = vim.fn.executable("wl-paste") == 1
+        local has_xclip = vim.fn.executable("xclip") == 1
+        local has_xsel = vim.fn.executable("xsel") == 1
+        local wsl = is_wsl()
+
+        if wsl and has_win32yank then
+          vim.g.clipboard = {
+            name = "win32yank-wsl",
+            copy = {
+              ["+"] = "win32yank.exe -i --crlf",
+              ["*"] = "win32yank.exe -i --crlf",
+            },
+            paste = {
+              ["+"] = "win32yank.exe -o --lf",
+              ["*"] = "win32yank.exe -o --lf",
+            },
+            cache_enabled = 0,
+          }
+        elseif in_tmux or in_ssh or not (has_wl_copy or has_xclip or has_xsel) then
+          -- OSC52 fallback, tmux-aware (writes directly to client_tty when inside tmux)
+          local ok, osc52 = pcall(require, "vim.ui.clipboard.osc52")
+          if ok and osc52 then
+            local function osc52_copy(reg)
+              return function(lines, regtype)
+                -- Try tmux client_tty passthrough first for reliability inside tmux
+                if in_tmux then
+                  local ok_tty, tty = pcall(function()
+                    return vim.fn.system('tmux display -p "#{client_tty}" 2>/dev/null'):gsub("%s+", "")
+                  end)
+                  if ok_tty and tty and tty ~= "" then
+                    local text = table.concat(lines, "\n")
+                    local b64
+                    local ok_b64, enc = pcall(vim.base64.encode, text)
+                    if ok_b64 then
+                      b64 = enc
+                    else
+                      b64 = vim.fn.system("base64 -w0", text):gsub("%s+", "")
+                    end
+                    local esc = string.format("\027]52;c;%s\027\\", b64)
+                    local f = io.open(tty, "wb")
+                    if f then
+                      f:write(esc)
+                      f:close()
+                      return
+                    end
+                  end
+                end
+                -- Fallback to built-in OSC52 (writes to stdout, requires tmux allow-passthrough)
+                return osc52.copy(reg)(lines, regtype)
+              end
+            end
+
+            local function make_paste(reg)
+              return function()
+                if has_win32yank then
+                  return { vim.fn.systemlist("win32yank.exe -o --lf 2>/dev/null"), vim.fn.getregtype(reg) }
+                elseif has_wl_paste then
+                  return { vim.fn.systemlist("wl-paste --no-newline 2>/dev/null", { "" }, 1), vim.fn.getregtype(reg) }
+                elseif has_xclip then
+                  return { vim.fn.systemlist("xclip -o -selection clipboard 2>/dev/null", { "" }, 1), vim.fn.getregtype(reg) }
+                elseif has_xsel then
+                  return { vim.fn.systemlist("xsel -o -b 2>/dev/null", { "" }, 1), vim.fn.getregtype(reg) }
+                else
+                  -- Last resort: avoid OSC52 query (often blocked); use current unnamed register
+                  -- User can paste from host via terminal's bracketed paste (Ctrl-Shift-V)
+                  -- To enable OSC52 paste query, uncomment: return osc52.paste(reg)()
+                  return { vim.fn.split(vim.fn.getreg(""), "\n"), vim.fn.getregtype("") }
+                end
+              end
+            end
+
+            vim.g.clipboard = {
+              name = "OSC52-tmux-hybrid",
+              copy = { ["+"] = osc52_copy("+"), ["*"] = osc52_copy("*") },
+              paste = { ["+"] = make_paste("+"), ["*"] = make_paste("*") },
+              cache_enabled = 0,
+            }
+          else
+            -- Fallback string shorthand if lua module not available (older nvim)
+            vim.g.clipboard = "osc52"
+          end
+        else
+          -- Native Linux with wl-copy/xclip available and not in tmux/ssh: use provider as-is
+          pcall(function() vim.opt.clipboard = "unnamedplus" end)
+        end
+      '';
+
       neotree-autopen = ''
         vim.api.nvim_create_autocmd("VimEnter", {
           callback = function()
