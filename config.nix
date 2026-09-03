@@ -471,7 +471,7 @@ in
     luaConfigRC = {
       clipboard-hybrid = entryAfter ["basic"] ''
         -- Hybrid clipboard: auto-detects Linux (Wayland/X11) / WSL / tmux / SSH
-        -- Priority: 1) win32yank.exe on WSL, 2) native wl-copy/xclip when available outside tmux/SSH, 3) OSC52 fallback (tmux-aware)
+        -- Priority: 1) win32yank.exe on WSL, 2) native wl-copy/xclip when available (even inside tmux, not SSH) -> yy global, 3) OSC52 fallback
         pcall(function() vim.opt.clipboard = "unnamedplus" end)
 
         local function is_wsl()
@@ -509,7 +509,11 @@ in
             },
             cache_enabled = 0,
           }
-        elseif in_tmux or in_ssh or not (has_wl_copy or has_xclip or has_xsel) then
+        elseif (has_wl_copy or has_xclip or has_xsel) and not in_ssh then
+          -- Native clipboard available and not over SSH: use it even inside tmux
+          -- wl-copy/xclip make yy global across nvim instances (no OSC52 needed)
+          pcall(function() vim.opt.clipboard = "unnamedplus" end)
+        elseif in_ssh or not (has_wl_copy or has_xclip or has_xsel) then
           -- OSC52 fallback, tmux-aware (writes directly to client_tty when inside tmux)
           local ok, osc52 = pcall(require, "vim.ui.clipboard.osc52")
           if ok and osc52 then
@@ -573,7 +577,7 @@ in
             vim.g.clipboard = "osc52"
           end
         else
-          -- Native Linux with wl-copy/xclip available and not in tmux/ssh: use provider as-is
+          -- Fallback: ensure unnamedplus (covers any remaining native case)
           pcall(function() vim.opt.clipboard = "unnamedplus" end)
         end
       '';
