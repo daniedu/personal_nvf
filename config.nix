@@ -127,7 +127,10 @@ in
         format.type = [ "nixfmt" ];
       };
       odin.enable = true;
-      php.enable = true;
+      php = {
+        enable = true;
+        lsp.servers = ["intelephense"];
+      };
       qml.enable = true;
       rust.enable = true;
       toml.enable = true;
@@ -166,11 +169,92 @@ in
           ];
         };
         intelephense = {
-          cmd = [
+          cmd = lib.mkForce [
             "intelephense"
             "--stdio"
           ];
-          filetypes = [ "php" ];
+          filetypes = lib.mkForce [ "php" ];
+          # monorepo: Laravel lives in web/ — expose vendor and stubs
+          settings = {
+            "intelephense.environment.phpVersion" = "8.2.0";
+            "intelephense.environment.includePaths" = [ "web/vendor" ];
+            "intelephense.files.maxSize" = 5000000;
+            "intelephense.stubs" = [
+              "apache"
+              "bcmath"
+              "bz2"
+              "calendar"
+              "com_dotnet"
+              "Core"
+              "ctype"
+              "curl"
+              "date"
+              "dom"
+              "exif"
+              "fileinfo"
+              "filter"
+              "fpm"
+              "ftp"
+              "gd"
+              "gettext"
+              "gmp"
+              "hash"
+              "iconv"
+              "imap"
+              "interbase"
+              "intl"
+              "json"
+              "ldap"
+              "libxml"
+              "mbstring"
+              "meta"
+              "mysqli"
+              "oci8"
+              "odbc"
+              "openssl"
+              "pcntl"
+              "pcre"
+              "PDO"
+              "pdo_ibm"
+              "pdo_mysql"
+              "pdo_pgsql"
+              "pdo_sqlite"
+              "pgsql"
+              "Phar"
+              "posix"
+              "pspell"
+              "random"
+              "readline"
+              "Reflection"
+              "session"
+              "shmop"
+              "SimpleXML"
+              "soap"
+              "sockets"
+              "sodium"
+              "SPL"
+              "sqlite3"
+              "standard"
+              "superglobal"
+              "sysvmsg"
+              "sysvsem"
+              "sysvshm"
+              "tidy"
+              "tokenizer"
+              "xml"
+              "xmlreader"
+              "xmlrpc"
+              "xmlwriter"
+              "Zend OPcache"
+              "zip"
+              "zlib"
+              "laravel"
+              "carbon"
+            ];
+          };
+        };
+        phpactor = {
+          enable = false;
         };
         nil.root_markers = lib.mkForce [
           ".git"
