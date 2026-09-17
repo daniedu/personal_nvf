@@ -635,9 +635,18 @@ in
 
             -- Collect names from decoded JSON whatever shape it has: a map
             -- (keys), a list (string items), or a list of {name=...} tables.
+            -- `devenv eval <attr>` wraps the result as { ["<attr>"] = ... },
+            -- so descend through a single tasks/scripts wrapper key.
+            local wrapper_keys = { tasks = true, scripts = true }
             local function json_names(stdout)
               local ok, data = pcall(vim.json.decode, stdout or "")
               if not ok or type(data) ~= "table" then return {} end
+              local count = 0
+              for _ in pairs(data) do count = count + 1 end
+              if count == 1 then
+                local k, v = next(data)
+                if wrapper_keys[k] and type(v) == "table" then data = v end
+              end
               local names = {}
               for k, v in pairs(data) do
                 if type(k) == "string" and k ~= "" then
