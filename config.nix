@@ -621,21 +621,31 @@ in
           -- Provider exposing devenv tasks (`devenv tasks run <name>`) and
           -- devenv scripts (`devenv shell <name>`) as Overseer templates.
           -- Only active in directories containing devenv.nix/devenv.yaml.
+          -- If nothing shows up, run :OverseerDevenvDebug in the project.
           do
-            local function devenv_eval_keys(dir, attr)
+            local function run_devenv(dir, args)
+              local cmd = { "devenv" }
+              for _, a in ipairs(args) do table.insert(cmd, a) end
               local ok, res = pcall(function()
-                return vim.system(
-                  { "devenv", "eval", attr },
-                  { cwd = dir, text = true, timeout = 15000 }
-                ):wait()
+                return vim.system(cmd, { cwd = dir, text = true, timeout = 30000 }):wait()
               end)
-              if not ok or not res or res.code ~= 0 then return {} end
-              local ok2, data = pcall(vim.json.decode, res.stdout or "")
-              if not ok2 or type(data) ~= "table" then return {} end
+              if not ok then return nil end
+              return res
+            end
+
+            -- Collect names from decoded JSON whatever shape it has: a map
+            -- (keys), a list (string items), or a list of {name=...} tables.
+            local function json_names(stdout)
+              local ok, data = pcall(vim.json.decode, stdout or "")
+              if not ok or type(data) ~= "table" then return {} end
               local names = {}
-              for k, _ in pairs(data) do
+              for k, v in pairs(data) do
                 if type(k) == "string" and k ~= "" then
                   table.insert(names, k)
+                elseif type(v) == "string" and v ~= "" then
+                  table.insert(names, v)
+                elseif type(v) == "table" and type(v.name) == "string" and v.name ~= "" then
+                  table.insert(names, v.name)
                 end
               end
               table.sort(names)
@@ -647,18 +657,11 @@ in
               no = true, error = true, warning = true, failed = true,
             }
 
-            -- Fallback for devenv versions without `devenv eval`: parse the
-            -- human-readable `devenv tasks list` output conservatively.
-            local function devenv_list_tasks(dir)
-              local ok, res = pcall(function()
-                return vim.system(
-                  { "devenv", "tasks", "list" },
-                  { cwd = dir, text = true, timeout = 15000 }
-                ):wait()
-              end)
-              if not ok or not res or res.code ~= 0 then return {} end
+            -- Fallback for old devenv versions: parse the human-readable
+            -- `devenv tasks list` output conservatively.
+            local function parse_tasks_text(stdout)
               local names = {}
-              for line in string.gmatch(res.stdout or "", "[^\n]+") do
+              for line in string.gmatch(stdout or "", "[^\n]+") do
                 local trimmed = line:match("^%s*(.-)%s*$")
                 if trimmed ~= "" then
                   local tok = trimmed:match("^([%w_][%w%-%._:]*)")
@@ -674,6 +677,56 @@ in
               return names
             end
 
+            -- Run every discovery probe, remember per-probe diagnostics.
+            -- Returns tasks, scripts, dbg.
+            local function discover(dir)
+              local dbg = {}
+              local function probe(label, args, parse)
+                local res = run_devenv(dir, args)
+                local entry = { label = label, code = res and res.code or "spawn-failed", names = {} }
+                if res and res.code == 0 then
+                  entry.names = parse(res.stdout or "")
+                else
+                  entry.err = res and (res.stderr or "") or ""
+                end
+                table.insert(dbg, entry)
+                return entry.names
+              end
+              local tasks = probe("eval tasks", { "eval", "tasks" }, json_names)
+              if #tasks == 0 then
+                tasks = probe("tasks list --json", { "tasks", "list", "--json" }, json_names)
+              end
+              if #tasks == 0 then
+                tasks = probe("tasks list", { "tasks", "list" }, parse_tasks_text)
+              end
+              local scripts = probe("eval scripts", { "eval", "scripts" }, json_names)
+              return tasks, scripts, dbg
+            end
+
+            vim.api.nvim_create_user_command("OverseerDevenvDebug", function()
+              local dir = vim.fn.getcwd()
+              vim.notify("Probing devenv in " .. dir .. " ...", vim.log.levels.INFO)
+              local tasks, scripts, dbg = discover(dir)
+              local exe = vim.fn.exepath("devenv")
+              local lines = {
+                "dir: " .. dir,
+                "devenv: " .. (exe ~= "" and exe or "(not on PATH)"),
+                "devenv.nix readable: " .. vim.fn.filereadable(dir .. "/devenv.nix"),
+                "devenv.yaml readable: " .. vim.fn.filereadable(dir .. "/devenv.yaml"),
+                string.format("tasks (%d): %s", #tasks, table.concat(tasks, ", ")),
+                string.format("scripts (%d): %s", #scripts, table.concat(scripts, ", ")),
+              }
+              for _, e in ipairs(dbg) do
+                local err = (e.err or ""):gsub("\27%[[%d;]*m", ""):gsub("%s+", " "):sub(1, 300)
+                table.insert(lines, string.format(
+                  "[%s] exit=%s names=%d%s",
+                  e.label, tostring(e.code), #e.names,
+                  err ~= "" and (" err: " .. err) or ""
+                ))
+              end
+              vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)
+            end, { desc = "Debug devenv task/script discovery for Overseer" })
+
             require("overseer").register_template({
               name = "devenv",
               priority = 100,
@@ -684,6 +737,7 @@ in
                 then
                   return {}
                 end
+                local tasks, scripts = discover(dir)
                 local seen, ret = {}, {}
                 local function add(display, builder)
                   if not seen[display] then
@@ -691,8 +745,6 @@ in
                     table.insert(ret, { name = display, builder = builder })
                   end
                 end
-                local tasks = devenv_eval_keys(dir, "tasks")
-                if #tasks == 0 then tasks = devenv_list_tasks(dir) end
                 for _, t in ipairs(tasks) do
                   local name = t
                   add("devenv task: " .. name, function()
@@ -703,7 +755,7 @@ in
                     }
                   end)
                 end
-                for _, s in ipairs(devenv_eval_keys(dir, "scripts")) do
+                for _, s in ipairs(scripts) do
                   local name = s
                   add("devenv script: " .. name, function()
                     return {
@@ -728,6 +780,7 @@ in
     };
 
     extraPackages = with pkgs; [
+      devenv
       prettierd
       phpPackages.php-cs-fixer
       stylua
