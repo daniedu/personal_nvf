@@ -366,6 +366,7 @@ in
 
     telescope = {
       enable = true;
+      setupOpts.defaults.path_display = ["smart"];
       extensions = [
         {
           name = "fzf";
@@ -854,19 +855,31 @@ in
         end
       '';
 
-      neotree-autopen = ''
-        vim.api.nvim_create_autocmd("VimEnter", {
-          callback = function()
-            require("neo-tree.command").execute({ toggle = false, dir = vim.uv.cwd() })
-          end,
-          nested = true,
-        })
-      '';
-
       cmp-ctrlp = ''
         vim.keymap.set("i", "<C-p>", function()
           require("cmp").complete()
         end, { desc = "Trigger nvim-cmp completion" })
+      '';
+
+      telescope-soften = entryAfter ["pluginConfigs"] ''
+        -- Tone down Telescope's match highlighting: keep the match color so
+        -- you can still see *what* matched, but drop the bold that makes
+        -- results look heavy against the paled base16 theme. Re-applied on
+        -- ColorScheme so theme reloads don't bring the bold back.
+        local function soften_telescope_hl()
+          for _, group in ipairs({ "TelescopeMatching", "TelescopeSelectionCaret" }) do
+            local ok, hl = pcall(vim.api.nvim_get_hl, 0, { name = group, link = false })
+            if ok and type(hl) == "table" and next(hl) ~= nil then
+              hl.bold = false
+              pcall(vim.api.nvim_set_hl, 0, group, hl)
+            end
+          end
+        end
+        vim.api.nvim_create_autocmd("ColorScheme", {
+          callback = soften_telescope_hl,
+          desc = "Keep Telescope match highlight non-bold",
+        })
+        vim.schedule(soften_telescope_hl)
       '';
 
       cmp-tmux-fix = entryAfter ["pluginConfigs"] ''
