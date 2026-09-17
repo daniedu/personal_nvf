@@ -11,7 +11,7 @@ let
   uiPaleStrength = 0.3;
   withHash = hex: "#${hex}";
   # Pull the dag helper from nvf's library structure
-  inherit (lib.nvim.dag) entryAfter;
+  inherit (lib.nvim.dag) entryAfter entryBefore;
 
   # Make a #hex color whiter by blending each channel toward white.
   paleHex = strength: hex:
@@ -469,7 +469,17 @@ in
       {
         key = "<leader>oo";
         mode = "n";
-        action = "<cmd>OverseerRun<CR>";
+        lua = true;
+        action = ''
+          function()
+            -- Telescope is lazy-loaded, but OverseerRun picks via
+            -- vim.ui.select, which only becomes a Telescope picker after
+            -- the ui-select extension loads. Force-load first so this
+            -- always opens as a Telescope picker.
+            pcall(function() require("lz.n").trigger_load("telescope") end)
+            vim.cmd("OverseerRun")
+          end
+        '';
         desc = "Overseer: run devenv task/script (Telescope)";
       }
       {
@@ -481,7 +491,15 @@ in
       {
         key = "<leader>oa";
         mode = "n";
-        action = "<cmd>OverseerTaskAction<CR>";
+        lua = true;
+        action = ''
+          function()
+            -- Same lazy-load reason as <leader>oo: task actions also pick
+            -- via vim.ui.select.
+            pcall(function() require("lz.n").trigger_load("telescope") end)
+            vim.cmd("OverseerTaskAction")
+          end
+        '';
         desc = "Overseer: task actions";
       }
       {
@@ -742,6 +760,14 @@ in
     '';
 
     luaConfigRC = {
+      base16-no-telescope = entryBefore ["theme"] ''
+        -- Opt out of base16-colorscheme's Telescope highlights so Telescope
+        -- keeps its stock look. Must run before the theme setup below.
+        pcall(function()
+          require("base16-colorscheme").with_config({ telescope = false })
+        end)
+      '';
+
       clipboard-hybrid = entryAfter ["basic"] ''
         -- Hybrid clipboard: auto-detects Linux (Wayland/X11) / WSL / tmux / SSH
         -- Priority: 1) win32yank.exe on WSL, 2) native wl-copy/xclip when available (even inside tmux, not SSH) -> yy global, 3) OSC52 fallback
