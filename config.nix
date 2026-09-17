@@ -756,13 +756,30 @@ in
                 end
                 for _, t in ipairs(tasks) do
                   local name = t
-                  add("devenv task: " .. name, function()
-                    return {
-                      cmd = { "devenv", "tasks", "run", name },
-                      cwd = dir,
-                      name = "devenv task " .. name,
-                    }
-                  end)
+                  -- Processes are auto-exposed as tasks named
+                  -- `devenv:processes:<name>`, but `devenv tasks run` tears
+                  -- processes down as soon as the graph finishes (game killed
+                  -- before its window appears). Route them through `devenv up`
+                  -- instead, which supervises them until stopped.
+                  local proc = name:match("^devenv:processes:(.+)$")
+                  if proc then
+                    local pname = proc
+                    add("devenv process: " .. pname, function()
+                      return {
+                        cmd = { "devenv", "up", pname },
+                        cwd = dir,
+                        name = "devenv process " .. pname,
+                      }
+                    end)
+                  else
+                    add("devenv task: " .. name, function()
+                      return {
+                        cmd = { "devenv", "tasks", "run", name },
+                        cwd = dir,
+                        name = "devenv task " .. name,
+                      }
+                    end)
+                  end
                 end
                 for _, s in ipairs(scripts) do
                   local name = s
