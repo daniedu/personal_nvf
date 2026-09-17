@@ -509,6 +509,36 @@ in
         desc = "Overseer: clear finished tasks";
       }
       {
+        key = "<leader>ol";
+        mode = "n";
+        lua = true;
+        action = ''
+          function()
+            -- Jump to the devenv process-only log (auto-opened on start);
+            -- falls back to opening it in a new tab.
+            local found = nil
+            for _, b in ipairs(vim.api.nvim_list_bufs()) do
+              if vim.api.nvim_buf_is_valid(b) and vim.bo[b].filetype == "DevenvProcessLog" then
+                found = b
+              end
+            end
+            if not found then
+              vim.notify("No devenv process log open", vim.log.levels.WARN)
+              return
+            end
+            for _, w in ipairs(vim.fn.win_findbuf(found)) do
+              if vim.api.nvim_win_is_valid(w) then
+                vim.api.nvim_set_current_win(w)
+                return
+              end
+            end
+            vim.cmd.tabnew()
+            vim.api.nvim_win_set_buf(0, found)
+          end
+        '';
+        desc = "Overseer: open devenv process log";
+      }
+      {
         key = "<leader>q";
         mode = "n";
         action = "<cmd>qa<CR>";
@@ -622,6 +652,148 @@ in
           -- devenv scripts (`devenv shell <name>`) as Overseer templates.
           -- Only active in directories containing devenv.nix/devenv.yaml.
           -- If nothing shows up, run :OverseerDevenvDebug in the project.
+          -- NOTE: all runtime builders pass `--no-tui` (+ DEVENV_TUI=false).
+          -- Overseer runs jobs under a pty, so without this devenv enables
+          -- its interactive tree/spinner UI: redraw escape sequences leave
+          -- blank gaps in scrollback, logs stay collapsed, and arrow keys go
+          -- to devenv instead of Vim navigation. `--show-output` on
+          -- `tasks run` additionally streams per-task logs so long builds
+          -- don't look stuck on a spinner with no output.
+          -- NOTE: do NOT add `--nix-option log-format raw` here: devenv 2.x
+          -- rejects it (`Failed to set nix option: log-format = raw`,
+          -- backend panics). Long-lived processes (`devenv up`) use a plain
+          -- output buffer instead (see strategy below), which is immune to
+          -- \r/cursor-escape redraw flicker from nix and compiler progress.
+          -- Custom component: process-only log view. `devenv up` always
+          -- prints its load phases (evaluate/configure/enterShell) before the
+          -- process itself logs anything; this mirrors ONLY the process's own
+          -- lines into a scratch buffer and auto-opens it in a new tab, so
+          -- the devenv UI bloat stays in the full-output buffer.
+          -- Registered via package.preload so this single-file config can
+          -- provide an `overseer.component.*` module without extra files.
+          do
+            -- EDIT THIS LIST if devenv chatter leaks into the log tab.
+            -- Anchored Lua patterns matched against each (ANSI-stripped) line:
+            local CHATTER_PATTERNS = {
+              "^%s*$", -- blank filler
+              "^{%s*$", -- stray braces from devenv summaries
+              "^}%s*$",
+              "^{%s*}%s*$", -- "{}" summary lines
+              "^%s*✓", -- devenv status lines ("✓ Loading tasks")
+              "^%s*✗", -- failure markers
+              "^%s*✖",
+              "^%s*%d+ of %d+", -- "3 of 3 tasks  │  1 process"
+              "^%s*%d+ %a+ed%s*$", -- "1 Succeeded"
+              "^%s*Loading tasks",
+              "^%s*Evaluating",
+              "^%s*Configuring shell",
+              "^%s*Running tasks",
+              "^%s*Running processes",
+              "^%s*Succeeded",
+              "^%s*Failed",
+              "^%s*Skipped",
+              "^%s*Running%s+%S+%s*$", -- "Running           nvf:hello"
+              "^%s*%d+%.?%d*%s*m?s%s*$", -- bare timings ("16ms", "35.4s")
+              "^%s*%d+%s*m%s*%d+%s*s%s*$", -- bare timings ("15m 3s")
+              "in %d+%.?%d*%s*m?s%s*$", -- timing suffixes ("... in 39.9ms")
+            }
+            -- Plain substrings matched anywhere in the line:
+            local CHATTER_SUBSTR = {
+              -- devenv refs ("devenv:enterShell", "devenv.config...").
+              -- Deliberately NOT bare "devenv": process lines like
+              -- "[myproc] built from devenv tasks" must survive.
+              "devenv:", "devenv.",
+              "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏", -- spinner frames
+            }
+            local function is_chatter(line)
+              for _, pat in ipairs(CHATTER_PATTERNS) do
+                if line:match(pat) then return true end
+              end
+              for _, sub in ipairs(CHATTER_SUBSTR) do
+                if line:find(sub, 1, true) then return true end
+              end
+              return false
+            end
+            package.preload["overseer.component.devenv_process_log"] = function()
+              return {
+                desc = "Mirror only the process's own log lines to a separate tab",
+                constructor = function()
+                  return {
+                    on_init = function(self, task)
+                      local bufnr = vim.api.nvim_create_buf(false, true)
+                      vim.bo[bufnr].filetype = "DevenvProcessLog"
+                      vim.bo[bufnr].bufhidden = "hide"
+                      vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
+                        "== process log: " .. (task.name or "?") .. " ==",
+                        "",
+                      })
+                      self.log_bufnr = bufnr
+                      self.log_opened = false
+                    end,
+                    on_reset = function(self)
+                      self.log_opened = false
+                      local bufnr = self.log_bufnr
+                      if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+                        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
+                      end
+                    end,
+                    on_output_lines = function(self, task, lines)
+                      local bufnr = self.log_bufnr
+                      if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then return end
+                      local keep = {}
+                      for _, line in ipairs(lines) do
+                        if not is_chatter(line) then table.insert(keep, line) end
+                      end
+                      if #keep == 0 then return end
+                      local before = vim.api.nvim_buf_line_count(bufnr)
+                      vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, keep)
+                      if not self.log_opened then
+                        self.log_opened = true
+                        local curwin = vim.api.nvim_get_current_win()
+                        vim.schedule(function()
+                          if not vim.api.nvim_buf_is_valid(bufnr) then return end
+                          for _, winid in ipairs(vim.fn.win_findbuf(bufnr)) do
+                            if vim.api.nvim_win_is_valid(winid) then return end
+                          end
+                          vim.cmd.tabnew()
+                          vim.api.nvim_win_set_buf(0, bufnr)
+                          if vim.api.nvim_win_is_valid(curwin) then
+                            vim.api.nvim_set_current_win(curwin)
+                          end
+                        end)
+                      else
+                        -- Follow the tail only while the viewer is at the end,
+                        -- so scrolled-up reading is never yanked away.
+                        for _, winid in ipairs(vim.fn.win_findbuf(bufnr)) do
+                          if vim.api.nvim_win_is_valid(winid) then
+                            local ok, cursor = pcall(vim.api.nvim_win_get_cursor, winid)
+                            if ok and cursor[1] >= before then
+                              local n = vim.api.nvim_buf_line_count(bufnr)
+                              pcall(vim.api.nvim_win_set_cursor, winid, { n, 0 })
+                            end
+                          end
+                        end
+                      end
+                    end,
+                    on_complete = function(self, task, status)
+                      local bufnr = self.log_bufnr
+                      if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+                        vim.api.nvim_buf_set_lines(bufnr, -1, -1, false,
+                          { "", "[process " .. tostring(status):lower() .. "]" })
+                      end
+                    end,
+                    on_dispose = function(self)
+                      local bufnr = self.log_bufnr
+                      self.log_bufnr = nil
+                      if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+                        vim.api.nvim_buf_delete(bufnr, { force = true })
+                      end
+                    end,
+                  }
+                end,
+              }
+            end
+          end
           do
             local function run_devenv(dir, args)
               local cmd = { "devenv" }
@@ -766,15 +938,31 @@ in
                     local pname = proc
                     add("devenv process: " .. pname, function()
                       return {
-                        cmd = { "devenv", "up", pname },
+                        cmd = { "devenv", "--no-tui", "up", pname },
+                        env = { DEVENV_TUI = "false" },
                         cwd = dir,
                         name = "devenv process " .. pname,
+                        components = { "devenv_process_log", "default" },
+                        -- Plain (non-terminal) output buffer for processes:
+                        -- `devenv up` supervises long-running builds whose
+                        -- children (nix `bar` progress, compiler spinners)
+                        -- redraw lines via \r/cursor escapes. In a terminal
+                        -- buffer that means constant flicker; in a plain
+                        -- buffer Overseer strips ANSI + trailing \r per line
+                        -- and only tails while your cursor is at the end, so
+                        -- devenv's load phase prints, then process logs
+                        -- stream as stable, searchable lines. Tradeoff: no
+                        -- ANSI colors and no interactive stdin. If a process
+                        -- ever needs keyboard input, drop this line to fall
+                        -- back to the default terminal strategy.
+                        strategy = { "jobstart", use_terminal = false },
                       }
                     end)
                   else
                     add("devenv task: " .. name, function()
                       return {
-                        cmd = { "devenv", "tasks", "run", name },
+                        cmd = { "devenv", "--no-tui", "tasks", "run", "--show-output", name },
+                        env = { DEVENV_TUI = "false" },
                         cwd = dir,
                         name = "devenv task " .. name,
                       }
@@ -785,7 +973,8 @@ in
                   local name = s
                   add("devenv script: " .. name, function()
                     return {
-                      cmd = { "devenv", "shell", name },
+                      cmd = { "devenv", "--no-tui", "shell", name },
+                      env = { DEVENV_TUI = "false" },
                       cwd = dir,
                       name = "devenv script " .. name,
                     }
@@ -801,6 +990,19 @@ in
           -- Opportunistic: enable the overseer Telescope extension if the
           -- installed overseer version ships one (harmless no-op otherwise).
           pcall(require("telescope").load_extension, "overseer")
+
+          -- Overseer output tabs are terminal-mode buffers: keys (incl.
+          -- arrows) go to the job, not Vim. devenv --no-tui needs no
+          -- interactive Esc, so buffer-locally let <Esc> drop to Normal
+          -- mode where j/k, gg/G, /-search and scrolling work.
+          -- (<C-\><C-n> keeps working everywhere, incl. lazygit.)
+          vim.api.nvim_create_autocmd("FileType", {
+            pattern = "OverseerOutput",
+            desc = "Esc exits terminal mode in Overseer output",
+            callback = function(args)
+              vim.keymap.set("t", "<Esc>", [[<C-\><C-n>]], { buffer = args.buf, desc = "Overseer: enter Normal mode" })
+            end,
+          })
         '';
       };
     };
