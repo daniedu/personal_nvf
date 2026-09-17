@@ -438,6 +438,33 @@ in
       }
       # NOTE: <leader>ff/fg/fb/fh/ft/fr are provided by the telescope
       # module itself, no manual keymaps needed.
+      # NOTE: nvf's lsp module puts these on <leader>l... (e.g. <leader>lgd);
+      # these are the classic vim-style aliases.
+      {
+        key = "gd";
+        mode = "n";
+        action = "<cmd>Telescope lsp_definitions<CR>";
+        desc = "Go to definition";
+      }
+      {
+        key = "gD";
+        mode = "n";
+        lua = true;
+        action = "function() vim.lsp.buf.declaration() end";
+        desc = "Go to declaration";
+      }
+      {
+        key = "gi";
+        mode = "n";
+        action = "<cmd>Telescope lsp_implementations<CR>";
+        desc = "Go to implementation";
+      }
+      {
+        key = "gr";
+        mode = "n";
+        action = "<cmd>Telescope lsp_references<CR>";
+        desc = "List references";
+      }
       {
         key = "<leader>oo";
         mode = "n";
@@ -549,7 +576,11 @@ in
         after = ["telescope"];
         setup = ''
           require("overseer").setup({
-            task_list = { direction = "bottom"; },
+            task_list = {
+              direction = "left";
+              max_width = { 60, 0.25 };
+              min_width = 30;
+            },
             -- devenv-only: disable task providers for other ecosystems so
             -- :OverseerRun only offers devenv tasks/scripts (+ our provider).
             disable_template_modules = {
