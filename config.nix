@@ -364,9 +364,37 @@ in
       };
     };
 
-    fzf-lua = {
+    telescope = {
       enable = true;
-      profile = "max-perf";
+      extensions = [
+        {
+          name = "fzf";
+          packages = [pkgs.vimPlugins.telescope-fzf-native-nvim];
+          setup = {
+            fzf = {
+              fuzzy = true;
+            };
+          };
+        }
+        {
+          name = "ui-select";
+          packages = [pkgs.vimPlugins.telescope-ui-select-nvim];
+        }
+      ];
+    };
+
+    navigation.harpoon = {
+      enable = true;
+      # NOTE: defaults for file1/file2 (<C-j>/<C-k>) clash with nvim-cmp
+      # navigation, so files are on <leader>1-4 instead.
+      mappings = {
+        markFile = "<leader>a";
+        listMarks = "<C-e>";
+        file1 = "<leader>1";
+        file2 = "<leader>2";
+        file3 = "<leader>3";
+        file4 = "<leader>4";
+      };
     };
 
     treesitter.textobjects = {
@@ -408,33 +436,31 @@ in
         action = "<cmd>Neotree toggle<CR>";
         desc = "Toggle file tree (Ctrl-b)";
       }
+      # NOTE: <leader>ff/fg/fb/fh/ft/fr are provided by the telescope
+      # module itself, no manual keymaps needed.
       {
-        key = "<leader>ff";
+        key = "<leader>oo";
         mode = "n";
-        lua = true;
-        action = "function() require('fzf-lua').files() end";
-        desc = "Find files";
+        action = "<cmd>OverseerRun<CR>";
+        desc = "Overseer: run devenv task/script (Telescope)";
       }
       {
-        key = "<leader>fg";
+        key = "<leader>ot";
         mode = "n";
-        lua = true;
-        action = "function() require('fzf-lua').live_grep() end";
-        desc = "Live grep";
+        action = "<cmd>OverseerToggle<CR>";
+        desc = "Overseer: toggle task list";
       }
       {
-        key = "<leader>fb";
+        key = "<leader>oa";
         mode = "n";
-        lua = true;
-        action = "function() require('fzf-lua').buffers() end";
-        desc = "Find buffers";
+        action = "<cmd>OverseerTaskAction<CR>";
+        desc = "Overseer: task actions";
       }
       {
-        key = "<leader>fh";
+        key = "<leader>oc";
         mode = "n";
-        lua = true;
-        action = "function() require('fzf-lua').help_tags() end";
-        desc = "Help tags";
+        action = "<cmd>OverseerClear<CR>";
+        desc = "Overseer: clear finished tasks";
       }
       {
         key = "<leader>q";
@@ -517,6 +543,137 @@ in
       };
       vim-visual-multi = {
         package = pkgs.vimPlugins.vim-visual-multi;
+      };
+      overseer = {
+        package = pkgs.vimPlugins.overseer-nvim;
+        after = ["telescope"];
+        setup = ''
+          require("overseer").setup({
+            task_list = { direction = "bottom"; },
+            -- devenv-only: disable task providers for other ecosystems so
+            -- :OverseerRun only offers devenv tasks/scripts (+ our provider).
+            disable_template_modules = {
+              "overseer.template.cargo",
+              "overseer.template.composer",
+              "overseer.template.deno",
+              "overseer.template.dotnet",
+              "overseer.template.go",
+              "overseer.template.gradle",
+              "overseer.template.just",
+              "overseer.template.make",
+              "overseer.template.mix",
+              "overseer.template.npm",
+              "overseer.template.rake",
+              "overseer.template.vscode",
+            },
+          })
+
+          -- Provider exposing devenv tasks (`devenv tasks run <name>`) and
+          -- devenv scripts (`devenv shell <name>`) as Overseer templates.
+          -- Only active in directories containing devenv.nix/devenv.yaml.
+          do
+            local function devenv_eval_keys(dir, attr)
+              local ok, res = pcall(function()
+                return vim.system(
+                  { "devenv", "eval", attr },
+                  { cwd = dir, text = true, timeout = 15000 }
+                ):wait()
+              end)
+              if not ok or not res or res.code ~= 0 then return {} end
+              local ok2, data = pcall(vim.json.decode, res.stdout or "")
+              if not ok2 or type(data) ~= "table" then return {} end
+              local names = {}
+              for k, _ in pairs(data) do
+                if type(k) == "string" and k ~= "" then
+                  table.insert(names, k)
+                end
+              end
+              table.sort(names)
+              return names
+            end
+
+            local skip_lines = {
+              available = true, tasks = true, task = true, list = true,
+              no = true, error = true, warning = true, failed = true,
+            }
+
+            -- Fallback for devenv versions without `devenv eval`: parse the
+            -- human-readable `devenv tasks list` output conservatively.
+            local function devenv_list_tasks(dir)
+              local ok, res = pcall(function()
+                return vim.system(
+                  { "devenv", "tasks", "list" },
+                  { cwd = dir, text = true, timeout = 15000 }
+                ):wait()
+              end)
+              if not ok or not res or res.code ~= 0 then return {} end
+              local names = {}
+              for line in string.gmatch(res.stdout or "", "[^\n]+") do
+                local trimmed = line:match("^%s*(.-)%s*$")
+                if trimmed ~= "" then
+                  local tok = trimmed:match("^([%w_][%w%-%._:]*)")
+                  local first = tok and tok:lower()
+                  if tok and not skip_lines[first]
+                    and (tok:find(":", 1, true) or trimmed == tok)
+                  then
+                    table.insert(names, tok)
+                  end
+                end
+              end
+              table.sort(names)
+              return names
+            end
+
+            require("overseer").register_template({
+              name = "devenv",
+              priority = 100,
+              generator = function(opts)
+                local dir = (opts and opts.dir) or vim.fn.getcwd()
+                if vim.fn.filereadable(dir .. "/devenv.nix") == 0
+                  and vim.fn.filereadable(dir .. "/devenv.yaml") == 0
+                then
+                  return {}
+                end
+                local seen, ret = {}, {}
+                local function add(display, builder)
+                  if not seen[display] then
+                    seen[display] = true
+                    table.insert(ret, { name = display, builder = builder })
+                  end
+                end
+                local tasks = devenv_eval_keys(dir, "tasks")
+                if #tasks == 0 then tasks = devenv_list_tasks(dir) end
+                for _, t in ipairs(tasks) do
+                  local name = t
+                  add("devenv task: " .. name, function()
+                    return {
+                      cmd = { "devenv", "tasks", "run", name },
+                      cwd = dir,
+                      name = "devenv task " .. name,
+                    }
+                  end)
+                end
+                for _, s in ipairs(devenv_eval_keys(dir, "scripts")) do
+                  local name = s
+                  add("devenv script: " .. name, function()
+                    return {
+                      cmd = { "devenv", "shell", name },
+                      cwd = dir,
+                      name = "devenv script " .. name,
+                    }
+                  end)
+                end
+                return ret
+              end,
+            })
+          end
+
+          -- :OverseerRun picks via vim.ui.select, which the telescope
+          -- ui-select extension above renders as a Telescope picker.
+          -- Opportunistic: enable the overseer Telescope extension if the
+          -- installed overseer version ships one (harmless no-op otherwise).
+          pcall(require("telescope").load_extension, "overseer")
+        '';
       };
     };
 
