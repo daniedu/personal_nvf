@@ -661,9 +661,13 @@ in
           -- don't look stuck on a spinner with no output.
           -- NOTE: do NOT add `--nix-option log-format raw` here: devenv 2.x
           -- rejects it (`Failed to set nix option: log-format = raw`,
-          -- backend panics). Long-lived processes (`devenv up`) use a plain
-          -- output buffer instead (see strategy below), which is immune to
-          -- \r/cursor-escape redraw flicker from nix and compiler progress.
+          -- backend panics). Flicker from \r/cursor-escape redraws stays in
+          -- the full-output tab; the devenv_process_log component below is
+          -- the clean reading view.
+          -- NOTE: do NOT set use_terminal = false on processes: pipes
+          -- block-buffer game stdout (INFO logs never arrive; only stderr
+          -- errors show). The default terminal strategy (pty) keeps stdout
+          -- line-buffered so logs stream live.
           -- Custom component: process-only log view. `devenv up` always
           -- prints its load phases (evaluate/configure/enterShell) before the
           -- process itself logs anything; this mirrors ONLY the process's own
@@ -943,19 +947,15 @@ in
                         cwd = dir,
                         name = "devenv process " .. pname,
                         components = { "devenv_process_log", "default" },
-                        -- Plain (non-terminal) output buffer for processes:
-                        -- `devenv up` supervises long-running builds whose
-                        -- children (nix `bar` progress, compiler spinners)
-                        -- redraw lines via \r/cursor escapes. In a terminal
-                        -- buffer that means constant flicker; in a plain
-                        -- buffer Overseer strips ANSI + trailing \r per line
-                        -- and only tails while your cursor is at the end, so
-                        -- devenv's load phase prints, then process logs
-                        -- stream as stable, searchable lines. Tradeoff: no
-                        -- ANSI colors and no interactive stdin. If a process
-                        -- ever needs keyboard input, drop this line to fall
-                        -- back to the default terminal strategy.
-                        strategy = { "jobstart", use_terminal = false },
+                        -- NOTE: processes intentionally use the DEFAULT
+                        -- terminal strategy (pty). A plain buffer
+                        -- (use_terminal = false) means pipes, and on pipes
+                        -- the game's stdout is block-buffered: errors
+                        -- (stderr, unbuffered) show up but normal INFO logs
+                        -- sit in a buffer that never fills. With a pty,
+                        -- stdout is line-buffered and logs stream live.
+                        -- Flicker stays in the full-output tab; the
+                        -- devenv_process_log tab is the clean reading view.
                       }
                     end)
                   else
