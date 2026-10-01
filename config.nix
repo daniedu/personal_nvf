@@ -466,6 +466,23 @@ in
         action = "<cmd>Telescope lsp_references<CR>";
         desc = "List references";
       }
+      # Harpoon cycling: Alt-j/k moves up/down through pinned marks.
+      # Kept off Alt-h/l (compositor uses those for window switching) and
+      # off <leader>1-4 (direct slot jumps, still active).
+      {
+        key = "<M-j>";
+        mode = "n";
+        lua = true;
+        action = "function() require('harpoon'):list():next() end";
+        desc = "Harpoon: next mark";
+      }
+      {
+        key = "<M-k>";
+        mode = "n";
+        lua = true;
+        action = "function() require('harpoon'):list():prev() end";
+        desc = "Harpoon: previous mark";
+      }
       {
         key = "<leader>oo";
         mode = "n";
