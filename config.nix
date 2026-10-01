@@ -661,33 +661,51 @@ in
           -- don't look stuck on a spinner with no output.
           -- NOTE: do NOT add `--nix-option log-format raw` here: devenv 2.x
           -- rejects it (`Failed to set nix option: log-format = raw`,
-          -- backend panics). Flicker from \r/cursor-escape redraws stays in
-          -- the full-output tab; the devenv_process_log component below is
-          -- the clean reading view.
-          -- NOTE: do NOT set use_terminal = false on processes: pipes
-          -- block-buffer game stdout (INFO logs never arrive; only stderr
-          -- errors show). The default terminal strategy (pty) keeps stdout
-          -- line-buffered so logs stream live.
+          -- backend panics).
+          -- NOTE: devenv 2.x `up` does NOT stream process output to its own
+          -- stdout: it writes .devenv/run/processes/logs/<name>.{stdout,stderr}.log
+          -- and only lifecycle chatter reaches the terminal. The
+          -- devenv_process_log component below therefore tails those files
+          -- into the log tab (and filters the `up` chatter). Without the
+          -- tail, the tab would only ever show startup chatter, never game logs.
+          -- NOTE: do NOT set use_terminal = false on processes: the `up`
+          -- supervisor itself needs the pty or its status UI misbehaves.
           -- Custom component: process-only log view. `devenv up` always
           -- prints its load phases (evaluate/configure/enterShell) before the
-          -- process itself logs anything; this mirrors ONLY the process's own
-          -- lines into a scratch buffer and auto-opens it in a new tab, so
-          -- the devenv UI bloat stays in the full-output buffer.
+          -- process itself logs anything; this mirrors the process log files
+          -- (plus any real stdout lines) into a scratch buffer and auto-opens
+          -- it in a new tab, so the devenv UI bloat stays in the full-output
+          -- buffer.
           -- Registered via package.preload so this single-file config can
           -- provide an `overseer.component.*` module without extra files.
           do
+            local uv = vim.uv or vim.loop
+
+            -- devenv 2.x draws its status UI with ANSI colors even under
+            -- --no-tui when stdout is a pty (which Overseer uses), e.g.
+            -- "<esc>[34m•<esc>[0m Configuring shell" or
+            -- "1 <esc>[34m<esc>[1mSkipped<esc>[0m, 2 <esc>[32m<esc>[1mSucceeded<esc>[0m".
+            -- Strip ANSI/CR plus leading status glyphs BEFORE matching below.
+            local function clean_line(line)
+              line = line:gsub("\27%[[%d;?]*[A-Za-z]", "")
+              line = line:gsub("\r", "")
+              line = line:gsub("^%s*[•●○◌✓✔✗✖]+%s*", "")
+              return line
+            end
             -- EDIT THIS LIST if devenv chatter leaks into the log tab.
-            -- Anchored Lua patterns matched against each (ANSI-stripped) line:
+            -- Anchored Lua patterns matched against each cleaned line:
             local CHATTER_PATTERNS = {
               "^%s*$", -- blank filler
               "^{%s*$", -- stray braces from devenv summaries
               "^}%s*$",
               "^{%s*}%s*$", -- "{}" summary lines
-              "^%s*✓", -- devenv status lines ("✓ Loading tasks")
+              "^%s*✓", -- leftover status marks (post-clean safety net)
               "^%s*✗", -- failure markers
               "^%s*✖",
               "^%s*%d+ of %d+", -- "3 of 3 tasks  │  1 process"
               "^%s*%d+ %a+ed%s*$", -- "1 Succeeded"
+              "^%s*%d+ %a+%s*,%s*%d+ %a+", -- "1 Skipped, 2 Succeeded"
+              "^%s*No command%s*", -- "No command       devenv:enterTest"
               "^%s*Loading tasks",
               "^%s*Evaluating",
               "^%s*Configuring shell",
@@ -701,7 +719,7 @@ in
               "^%s*%d+%s*m%s*%d+%s*s%s*$", -- bare timings ("15m 3s")
               "in %d+%.?%d*%s*m?s%s*$", -- timing suffixes ("... in 39.9ms")
             }
-            -- Plain substrings matched anywhere in the line:
+            -- Plain substrings matched anywhere in the CLEANED line:
             local CHATTER_SUBSTR = {
               -- devenv refs ("devenv:enterShell", "devenv.config...").
               -- Deliberately NOT bare "devenv": process lines like
@@ -709,7 +727,8 @@ in
               "devenv:", "devenv.",
               "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏", -- spinner frames
             }
-            local function is_chatter(line)
+            local function is_chatter(raw)
+              local line = clean_line(raw)
               for _, pat in ipairs(CHATTER_PATTERNS) do
                 if line:match(pat) then return true end
               end
@@ -719,77 +738,176 @@ in
               return false
             end
             package.preload["overseer.component.devenv_process_log"] = function()
+              -- Base path (without .stdout.log/.stderr.log suffix) for the
+              -- devenv process behind a "devenv process <name>" task.
+              local function task_log_base(task)
+                if task == nil then return nil end
+                local dir = nil
+                if type(task.cwd) == "string" and task.cwd ~= "" then
+                  dir = task.cwd
+                else
+                  dir = vim.fn.getcwd()
+                end
+                local pname = task.name and task.name:match("^devenv process%s+(.+)%s*$") or nil
+                if dir == nil or pname == nil then return nil end
+                return dir .. "/.devenv/run/processes/logs/" .. pname
+              end
+              local LOG_TAIL_CTX = 100 -- lines of existing log shown on first sight
+              local LOG_MAX_BUF = 5000 -- trim the scratch buffer past this size
+              local LOG_TRIM_TO = 4000 -- lines kept after a trim
+              local POLL_MS = 500
               return {
-                desc = "Mirror only the process's own log lines to a separate tab",
+                desc = "Tail devenv 2.x process log files into a separate tab",
                 constructor = function()
+                  local function is_live(bufnr)
+                    return bufnr ~= nil and vim.api.nvim_buf_is_valid(bufnr)
+                  end
+                  local function append_lines(self, lines)
+                    if #lines == 0 or not is_live(self.log_bufnr) then return end
+                    local bufnr = self.log_bufnr
+                    local before = vim.api.nvim_buf_line_count(bufnr)
+                    vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, lines)
+                    -- Trim runaway buffers (e.g. per-frame game logging).
+                    local n = vim.api.nvim_buf_line_count(bufnr)
+                    if n > LOG_MAX_BUF then
+                      vim.api.nvim_buf_set_lines(bufnr, 0, n - LOG_TRIM_TO, false, {})
+                    end
+                    if not self.log_opened then
+                      self.log_opened = true
+                      local curwin = vim.api.nvim_get_current_win()
+                      vim.schedule(function()
+                        if not is_live(self.log_bufnr) then return end
+                        for _, winid in ipairs(vim.fn.win_findbuf(bufnr)) do
+                          if vim.api.nvim_win_is_valid(winid) then return end
+                        end
+                        vim.cmd.tabnew()
+                        vim.api.nvim_win_set_buf(0, bufnr)
+                        if vim.api.nvim_win_is_valid(curwin) then
+                          vim.api.nvim_set_current_win(curwin)
+                        end
+                      end)
+                    else
+                      -- Follow the tail only while the viewer is at the end,
+                      -- so scrolled-up reading is never yanked away.
+                      for _, winid in ipairs(vim.fn.win_findbuf(bufnr)) do
+                        if vim.api.nvim_win_is_valid(winid) then
+                          local ok, cursor = pcall(vim.api.nvim_win_get_cursor, winid)
+                          if ok and cursor[1] >= before then
+                            local count = vim.api.nvim_buf_line_count(bufnr)
+                            pcall(vim.api.nvim_win_set_cursor, winid, { count, 0 })
+                          end
+                        end
+                      end
+                    end
+                  end
+                  -- Mirror unseen lines of one log file into the log tab.
+                  local function poll_one(self, path, is_err)
+                    if path == nil or vim.fn.filereadable(path) ~= 1 then return end
+                    local size = vim.fn.getfsize(path)
+                    if size == self.poll_sizes[path] then return end
+                    self.poll_sizes[path] = size
+                    local ok, lines = pcall(vim.fn.readfile, path)
+                    if not ok or type(lines) ~= "table" then return end
+                    local off = self.poll_off[path]
+                    local fresh
+                    if off == nil then
+                      -- First sighting: show recent context, then follow.
+                      fresh = {}
+                      local from = math.max(1, #lines - LOG_TAIL_CTX + 1)
+                      for i = from, #lines do table.insert(fresh, lines[i]) end
+                    elseif #lines < off then
+                      -- Truncated (fresh run): start over with a marker.
+                      fresh = { "--- log restarted ---" }
+                      for _, l in ipairs(lines) do table.insert(fresh, l) end
+                    else
+                      fresh = {}
+                      for i = off + 1, #lines do table.insert(fresh, lines[i]) end
+                    end
+                    self.poll_off[path] = #lines
+                    if is_err then
+                      for i, l in ipairs(fresh) do fresh[i] = "[stderr] " .. l end
+                    end
+                    append_lines(self, fresh)
+                  end
+                  local function stop_poll(self)
+                    if self.poll_timer ~= nil then
+                      pcall(function() self.poll_timer:stop() end)
+                      pcall(function() self.poll_timer:close() end)
+                      self.poll_timer = nil
+                    end
+                  end
+                  local function start_poll(self)
+                    stop_poll(self)
+                    if uv == nil then return end
+                    local ok, timer = pcall(uv.new_timer)
+                    if not ok or timer == nil then return end
+                    self.poll_timer = timer
+                    timer:start(POLL_MS, POLL_MS, vim.schedule_wrap(function()
+                      if self.log_bufnr == nil then return end
+                      if self.stdout_path ~= nil then poll_one(self, self.stdout_path, false) end
+                      if self.stderr_path ~= nil then poll_one(self, self.stderr_path, true) end
+                    end))
+                  end
                   return {
                     on_init = function(self, task)
                       local bufnr = vim.api.nvim_create_buf(false, true)
                       vim.bo[bufnr].filetype = "DevenvProcessLog"
                       vim.bo[bufnr].bufhidden = "hide"
                       vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
-                        "== process log: " .. (task.name or "?") .. " ==",
+                        "== process log: " .. ((task and task.name) or "?") .. " ==",
                         "",
                       })
                       self.log_bufnr = bufnr
                       self.log_opened = false
-                    end,
-                    on_reset = function(self)
-                      self.log_opened = false
-                      local bufnr = self.log_bufnr
-                      if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
-                        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
+                      self.poll_off = {}
+                      self.poll_sizes = {}
+                      local base = task_log_base(task)
+                      if base ~= nil then
+                        self.stdout_path = base .. ".stdout.log"
+                        self.stderr_path = base .. ".stderr.log"
+                      else
+                        self.stdout_path = nil
+                        self.stderr_path = nil
                       end
+                      start_poll(self)
+                    end,
+                    on_reset = function(self, task)
+                      self.log_opened = false
+                      self.poll_off = {}
+                      self.poll_sizes = {}
+                      local bufnr = self.log_bufnr
+                      if is_live(bufnr) then
+                        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
+                          "== process log: " .. ((task and task.name) or "?") .. " ==",
+                          "",
+                        })
+                      end
+                      start_poll(self)
                     end,
                     on_output_lines = function(self, task, lines)
-                      local bufnr = self.log_bufnr
-                      if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then return end
+                      -- `up` stdout is only lifecycle chatter on devenv 2.x,
+                      -- but pass through anything real (older devenv streamed
+                      -- process output here).
+                      if not is_live(self.log_bufnr) then return end
                       local keep = {}
                       for _, line in ipairs(lines) do
                         if not is_chatter(line) then table.insert(keep, line) end
                       end
-                      if #keep == 0 then return end
-                      local before = vim.api.nvim_buf_line_count(bufnr)
-                      vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, keep)
-                      if not self.log_opened then
-                        self.log_opened = true
-                        local curwin = vim.api.nvim_get_current_win()
-                        vim.schedule(function()
-                          if not vim.api.nvim_buf_is_valid(bufnr) then return end
-                          for _, winid in ipairs(vim.fn.win_findbuf(bufnr)) do
-                            if vim.api.nvim_win_is_valid(winid) then return end
-                          end
-                          vim.cmd.tabnew()
-                          vim.api.nvim_win_set_buf(0, bufnr)
-                          if vim.api.nvim_win_is_valid(curwin) then
-                            vim.api.nvim_set_current_win(curwin)
-                          end
-                        end)
-                      else
-                        -- Follow the tail only while the viewer is at the end,
-                        -- so scrolled-up reading is never yanked away.
-                        for _, winid in ipairs(vim.fn.win_findbuf(bufnr)) do
-                          if vim.api.nvim_win_is_valid(winid) then
-                            local ok, cursor = pcall(vim.api.nvim_win_get_cursor, winid)
-                            if ok and cursor[1] >= before then
-                              local n = vim.api.nvim_buf_line_count(bufnr)
-                              pcall(vim.api.nvim_win_set_cursor, winid, { n, 0 })
-                            end
-                          end
-                        end
-                      end
+                      append_lines(self, keep)
                     end,
                     on_complete = function(self, task, status)
+                      stop_poll(self)
                       local bufnr = self.log_bufnr
-                      if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+                      if is_live(bufnr) then
                         vim.api.nvim_buf_set_lines(bufnr, -1, -1, false,
                           { "", "[process " .. tostring(status):lower() .. "]" })
                       end
                     end,
                     on_dispose = function(self)
+                      stop_poll(self)
                       local bufnr = self.log_bufnr
                       self.log_bufnr = nil
-                      if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+                      if is_live(bufnr) then
                         vim.api.nvim_buf_delete(bufnr, { force = true })
                       end
                     end,
@@ -948,12 +1066,11 @@ in
                         name = "devenv process " .. pname,
                         components = { "devenv_process_log", "default" },
                         -- NOTE: processes intentionally use the DEFAULT
-                        -- terminal strategy (pty). A plain buffer
-                        -- (use_terminal = false) means pipes, and on pipes
-                        -- the game's stdout is block-buffered: errors
-                        -- (stderr, unbuffered) show up but normal INFO logs
-                        -- sit in a buffer that never fills. With a pty,
-                        -- stdout is line-buffered and logs stream live.
+                        -- terminal strategy (pty): devenv 2.x `up` renders
+                        -- its status UI for a tty, and the component filters
+                        -- that chatter. The game logs themselves are tailed
+                        -- from .devenv/run/processes/logs/<name>.*.log by
+                        -- devenv_process_log, so they stream live regardless.
                         -- Flicker stays in the full-output tab; the
                         -- devenv_process_log tab is the clean reading view.
                       }
