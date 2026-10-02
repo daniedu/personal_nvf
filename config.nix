@@ -366,7 +366,27 @@ in
 
     telescope = {
       enable = true;
-      setupOpts.defaults.path_display = ["smart"];
+      setupOpts.defaults = {
+        path_display = ["smart"];
+        # Telescope opens its prompt in insert mode but binds <C-j> to a no-op
+        # (so you can't insert newlines) and <C-k> to preview-scroll-right, so
+        # navigating results required <Esc> first. Map the familiar pair to
+        # selection movement in both modes; the rest of the defaults
+        # (<C-n>/<C-p>, arrows, <Tab>/<S-Tab>, <CR>, ...) still apply because
+        # telescope applies these per-key on top of its defaults.
+        # NOTE: this takes over <C-k> from preview_scrolling_right in both
+        # modes; horizontal preview scroll is deliberately left unmapped.
+        mappings = {
+          i = {
+            "<C-j>" = "move_selection_next";
+            "<C-k>" = "move_selection_previous";
+          };
+          n = {
+            "<C-j>" = "move_selection_next";
+            "<C-k>" = "move_selection_previous";
+          };
+        };
+      };
       extensions = [
         {
           name = "fzf";
