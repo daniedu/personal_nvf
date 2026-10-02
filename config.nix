@@ -4,11 +4,12 @@
   ...
 }:
 let
-  activeTheme = import ./assets/themes/astronaut_earth_space_art_2.nix;
+  activeTheme = import ./assets/themes/snow.nix;
   # How much to pale the accent colors (0.0 = untouched, 1.0 = fully white)
-  paleStrength = 0.7;
+  # snow is already a pale palette, so accents are left untouched
+  paleStrength = 0.0;
   # How much to pale the UI/gray colors (line numbers, cursorline, neo-tree, text)
-  uiPaleStrength = 0.3;
+  uiPaleStrength = 0.0;
   withHash = hex: "#${hex}";
   # Pull the dag helper from nvf's library structure
   inherit (lib.nvim.dag) entryAfter entryBefore;

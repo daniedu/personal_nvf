@@ -23,7 +23,7 @@ devenv shell
 
 | Category        | What's included                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Theme**       | Catppuccin Mocha                                                                                                                                   |
+| **Theme**       | base16 snow (raw palette)                                                                                                                         |
 | **Languages**   | bash, clang (C/C++), cmake, css, dart, go, html, json, lua, markdown, nix, odin, php, qml, rust, toml, tsx, typescript, yaml                       |
 | **LSP**         | clangd (with custom flags), tailwindcss, intelephense, plus all language-module defaults                                                           |
 | **File tree**   | neo-tree (right side, auto-opens on start)                                                                                                         |
