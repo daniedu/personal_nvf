@@ -161,27 +161,87 @@ in
     # shortcuts (devenv shell pico8 / pico8-run <cart>).
     # -------------------------------------------------------------------------
 
-    # .p8 files are their own filetype. Without this, nvim has no idea what
-    # a cartridge is and neither the grammar nor the LSP would attach.
-    filetype.extension.p8 = "pico8";
+    # The filetype is called "pico-8" (not "pico8") because the language
+    # server uses the filetype as the LSP languageId, and its formatter
+    # only accepts "pico-8" and "pico-8-lua". With any other name the
+    # server refuses to format and `documentFormatting` comes back empty.
+    filetype.extension.p8 = "pico-8";
+
+    # A .lua file is PICO-8 code when it is #include'd by a cart: the
+    # server resolves includes relative to the including file, so the
+    # include is found by looking for it in the same directory. Such files
+    # get the "pico-8-lua" filetype, which is the other languageId the
+    # server understands. Everything else stays plain Lua.
+    filetype.extension.lua = lib.generators.mkLuaInline ''
+      function(path, bufnr)
+        local name = vim.fn.fnamemodify(path, ":t")
+        local dir = vim.fn.fnamemodify(path, ":h")
+        local ok, entries = pcall(vim.fn.glob, dir .. "/*.p8", false, true)
+        if not ok then return "lua" end
+        for _, cart in ipairs(entries) do
+          local ok, lines = pcall(vim.fn.readfile, cart)
+          if ok then
+            for _, line in ipairs(lines) do
+              -- "#include foo.lua", with optional quotes and whitespace
+              if line:match("^%s*#include%s+[\"\']?([^%s\"\']+)[\"\']?%s*$") == name then
+                return "pico-8-lua"
+              end
+            end
+          end
+        end
+        return "lua"
+      end
+    '';
 
     treesitter = {
       # The grammar ships its own queries (highlights.scm), so nothing else
       # is needed for the colours.
       grammars = [ tree-sitter-pico8 ];
 
-      # Register the parser under the "pico8" filetype, which is what
-      # filetype.extension.p8 above sets.
-      filetypeMappings.pico8 = [ "pico8" ];
+      # The cartridge grammar covers the whole .p8 file - the header, the
+      # __lua__ section and the hex sections after it.
+      filetypeMappings.pico8 = [ "pico-8" ];
+
+      # The included .lua files are plain Lua source, so they use the
+      # regular Lua parser rather than the cartridge one.
+      filetypeMappings.lua = [ "pico-8-lua" ];
     };
 
     lsp.servers.pico8_ls = {
       cmd = [ "${pico8-ls}/bin/pico8-ls" ];
-      filetypes = [ "pico8" ];
-      # A project is a directory holding .p8 carts, so the cart itself is
-      # the root marker. The server groups carts that #include each other
-      # into a project on its own.
-      root_markers = [ "*.p8" ];
+      # Both languageIds the server understands: the cartridge and the
+      # included Lua files.
+      filetypes = [
+        "pico-8"
+        "pico-8-lua"
+      ];
+      # The server builds its project tree from the workspace folders it is
+      # given, and Neovim derives those from root_dir. So root_dir has to
+      # point at the directory holding the cart.
+      #
+      # root_markers cannot do this: nvim matches those against file NAMES
+      # (".git", "package.json"), not globs, so a "*.p8" marker never
+      # matches and the client ends up with no workspace folder at all.
+      # Without one the server never scans the project, so completions and
+      # cross-file navigation come back empty.
+      #
+      # This walks up from the buffer to the nearest directory containing a
+      # .p8 cart - that is the project root.
+      root_dir = lib.generators.mkLuaInline ''
+        function(bufnr, on_dir)
+          local name = vim.api.nvim_buf_get_name(bufnr)
+          if name == "" then return end
+          local dir = vim.fs.dirname(name)
+          for d in vim.fs.parents(dir) do
+            if #vim.fn.glob(d .. "/*.p8", false, true) > 0 then
+              on_dir(d)
+              return
+            end
+            if d == "/" then break end
+          end
+          on_dir(dir)
+        end
+      '';
     };
 
     lsp = {
