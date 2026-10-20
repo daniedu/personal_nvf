@@ -1,6 +1,8 @@
 {
   pkgs,
   lib,
+  tree-sitter-pico8,
+  pico8-ls,
   ...
 }:
 let
@@ -138,6 +140,48 @@ in
       tsx.enable = true;
       typescript.enable = true;
       yaml.enable = true;
+    };
+
+    # -------------------------------------------------------------------------
+    # PICO-8
+    # -------------------------------------------------------------------------
+    # PICO-8 cartridges are .p8 files: Lua in the PICO-8 dialect, with the
+    # gfx/map/sfx/music sections as hex blobs after the code.
+    #
+    # Neither the treesitter grammar nor the language server is in nixpkgs,
+    # so both are built from source in this flake and handed in through
+    # extraSpecialArgs (see flake.nix).
+    #
+    # The workflow this enables:
+    #   * edit the .p8 in nvim, save with <C-s>
+    #   * in the PICO-8 window press CTRL-R to reload the cart from disk
+    #     (PICO-8 only reloads when it has no unsaved changes of its own)
+    #
+    # Projects live in ~/Projects/pico-8 - see its devenv.nix for the launch
+    # shortcuts (devenv shell pico8 / pico8-run <cart>).
+    # -------------------------------------------------------------------------
+
+    # .p8 files are their own filetype. Without this, nvim has no idea what
+    # a cartridge is and neither the grammar nor the LSP would attach.
+    filetype.extension.p8 = "pico8";
+
+    treesitter = {
+      # The grammar ships its own queries (highlights.scm), so nothing else
+      # is needed for the colours.
+      grammars = [ tree-sitter-pico8 ];
+
+      # Register the parser under the "pico8" filetype, which is what
+      # filetype.extension.p8 above sets.
+      filetypeMappings.pico8 = [ "pico8" ];
+    };
+
+    lsp.servers.pico8_ls = {
+      cmd = [ "${pico8-ls}/bin/pico8-ls" ];
+      filetypes = [ "pico8" ];
+      # A project is a directory holding .p8 carts, so the cart itself is
+      # the root marker. The server groups carts that #include each other
+      # into a project on its own.
+      root_markers = [ "*.p8" ];
     };
 
     lsp = {
