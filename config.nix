@@ -167,28 +167,17 @@ in
     # server refuses to format and `documentFormatting` comes back empty.
     filetype.extension.p8 = "pico-8";
 
-    # A .lua file is PICO-8 code when it is #include'd by a cart: the
-    # server resolves includes relative to the including file, so the
-    # include is found by looking for it in the same directory. Such files
-    # get the "pico-8-lua" filetype, which is the other languageId the
-    # server understands. Everything else stays plain Lua.
+    # A .lua file is PICO-8 code when it lives in a PICO-8 project, i.e. a
+    # directory that holds a .p8 cart. Such files get the "pico-8-lua"
+    # filetype, which is the other languageId the server understands.
+    # Everything else stays plain Lua.
+    #
+    # pico8_project_dir() is the single source of truth for "which project is
+    # this file in" - it is used here AND for the LSP root_dir below, so the
+    # filetype and the workspace can never disagree.
     filetype.extension.lua = lib.generators.mkLuaInline ''
       function(path, bufnr)
-        local name = vim.fn.fnamemodify(path, ":t")
-        local dir = vim.fn.fnamemodify(path, ":h")
-        local ok, entries = pcall(vim.fn.glob, dir .. "/*.p8", false, true)
-        if not ok then return "lua" end
-        for _, cart in ipairs(entries) do
-          local ok, lines = pcall(vim.fn.readfile, cart)
-          if ok then
-            for _, line in ipairs(lines) do
-              -- "#include foo.lua", with optional quotes and whitespace
-              if line:match("^%s*#include%s+[\"\']?([^%s\"\']+)[\"\']?%s*$") == name then
-                return "pico-8-lua"
-              end
-            end
-          end
-        end
+        if pico8_project_dir(path) then return "pico-8-lua" end
         return "lua"
       end
     '';
@@ -224,22 +213,11 @@ in
       # matches and the client ends up with no workspace folder at all.
       # Without one the server never scans the project, so completions and
       # cross-file navigation come back empty.
-      #
-      # This walks up from the buffer to the nearest directory containing a
-      # .p8 cart - that is the project root.
       root_dir = lib.generators.mkLuaInline ''
         function(bufnr, on_dir)
           local name = vim.api.nvim_buf_get_name(bufnr)
           if name == "" then return end
-          local dir = vim.fs.dirname(name)
-          for d in vim.fs.parents(dir) do
-            if #vim.fn.glob(d .. "/*.p8", false, true) > 0 then
-              on_dir(d)
-              return
-            end
-            if d == "/" then break end
-          end
-          on_dir(dir)
+          on_dir(pico8_project_dir(name) or vim.fs.dirname(name))
         end
       '';
     };
@@ -1300,6 +1278,42 @@ in
     '';
 
     luaConfigRC = {
+      # -------------------------------------------------------------------------
+      # PICO-8 project detection
+      # -------------------------------------------------------------------------
+      # The single source of truth for "which PICO-8 project does this file
+      # belong to": the nearest directory, walking up and INCLUDING the file's
+      # own directory, that contains a .p8 cart.
+      #
+      # One project per directory is the layout: ~/Projects/pico-8/shmup/ holds
+      # untitled.p8 and shmup.lua, and that directory is the project.
+      #
+      # It has to be a global, because two different places need it: the
+      # filetype detection (is this .lua file PICO-8 code?) and the LSP
+      # root_dir (which workspace does the server scan?). When they disagree,
+      # the filetype says "PICO-8" but the server looks in the wrong
+      # directory and completions come back empty.
+      #
+      # Note: vim.fs.parents() returns only the ANCESTORS of a directory, it
+      # does not include the directory itself. Walking it directly would skip
+      # the file's own folder and land one level too high, which put every
+      # project in the same workspace.
+      pico8-project = entryBefore [ "filetype" ] ''
+        function _G.pico8_project_dir(path)
+          if not path or path == "" then return nil end
+          local dir = vim.fs.dirname(path)
+          while dir and dir ~= "" do
+            if #vim.fn.glob(dir .. "/*.p8", false, true) > 0 then
+              return dir
+            end
+            local parent = vim.fs.dirname(dir)
+            if parent == dir then break end
+            dir = parent
+          end
+          return nil
+        end
+      '';
+
       base16-no-telescope = entryBefore ["theme"] ''
         -- Opt out of base16-colorscheme's Telescope highlights so Telescope
         -- keeps its stock look. Must run before the theme setup below.
